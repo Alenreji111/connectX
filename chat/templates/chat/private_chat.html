@@ -1,0 +1,166 @@
+<div class="flex flex-col h-full">
+  <!-- HEADER -->
+  <div class="bg-white shadow p-4 border-b">
+    <h2 class="font-semibold text-lg">
+      {{ other_user.username }}
+
+      <span id="status-text" class="text-sm text-gray-500 ml-2">
+        {% if status.is_online %}
+        <span class="text-green-600">● Online</span>
+        {% else %} last seen {{ status.last_seen|timesince }} ago {% endif %}
+      </span>
+    </h2>
+  </div>
+  <!-- MESSAGES -->
+  <div
+    id="messages"
+    class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2"
+  >
+    {% for msg in messages %}
+    <div
+      class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}"
+    >
+      <div
+        class="px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}"
+      >
+        {{ msg.content }}
+
+        <div class="text-xs text-gray-600">{{ msg.timestamp|time:"H:i" }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- TYPING -->
+  <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div>
+
+  <!-- INPUT -->
+  <div class="flex gap-2 p-3 bg-white border-t">
+    <input
+      id="messageInput"
+      class="flex-1 border rounded-lg px-3 py-2 outline-none"
+      placeholder="Type a message..."
+    />
+
+    <button
+      onclick="sendPrivateMessage()"
+      class="bg-green-500 text-white px-4 py-2 rounded-lg"
+    >
+      Send
+    </button>
+  </div>
+</div>
+
+<script>
+  var roomName = "{{ room_name }}";
+  const username = "{{ request.user.username }}";
+
+  let messageQueue = [];
+
+  function connectSocket() {
+    chatSocket = new WebSocket(
+      "ws://" + window.location.host + "/ws/private/" + roomName + "/",
+    );
+
+    chatSocket.onopen = function () {
+      console.log("Private socket connected");
+
+      while (messageQueue.length > 0) {
+        chatSocket.send(messageQueue.shift());
+      }
+    };
+    chatSocket.onmessage = function (e) {
+      const data = JSON.parse(e.data);
+      // ✅ TYPING
+      if (data.type === "typing") {
+        if (data.username !== username) {
+          document.getElementById("typing-indicator").innerText = data.typing
+            ? data.username + " is typing..."
+            : "";
+            console.log(data.type)
+        }
+
+        return;
+      }
+      // ✅ PRESENCE
+      if (data.type === "presence") {
+        if (data.username === "{{ other_user.username }}") {
+          document.getElementById("status-text").innerHTML = data.is_online
+            ? '<span class="text-green-600">● Online</span>'
+            : '<span class="text-gray-400">last seen just now</span>';
+        }
+
+        return;
+      }
+      // ✅ MESSAGE
+      const messages = document.getElementById("messages");
+      const isMe = data.username === username;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
+
+      wrapper.innerHTML = `
+            <div class="px-4 py-2 rounded-xl max-w-xs
+                ${isMe ? "bg-green-300" : "bg-white"}">
+                ${data.message}
+                <div class="text-xs text-gray-600">
+                    ${new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                </div>
+            </div>
+        `;
+
+      messages.appendChild(wrapper);
+      messages.scrollTop = messages.scrollHeight;
+    };
+  }
+
+  function sendPrivateMessage() {
+    const input = document.getElementById("messageInput");
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    const payload = JSON.stringify({ message });
+
+    if (chatSocket.readyState === WebSocket.OPEN) {
+      chatSocket.send(payload);
+      chatSocket.send(JSON.stringify({ typing: false }));
+    } else {
+      messageQueue.push(payload);
+    }
+
+    input.value = "";
+  }
+
+  document
+    .getElementById("messageInput")
+    .addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        sendPrivateMessage();
+      }
+    });
+
+  let typingTimeout = null;
+
+  document
+    .getElementById("messageInput")
+    .addEventListener("input", function () {
+      if (chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({ typing: true }));
+      }
+
+      clearTimeout(typingTimeout);
+
+      typingTimeout = setTimeout(() => {
+        if (chatSocket.readyState === WebSocket.OPEN) {
+          chatSocket.send(JSON.stringify({ typing: false }));
+        }
+      }, 1000);
+    });
+
+  const messagesDiv = document.getElementById("messages");
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+</script>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Contacts</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script>
+      console.log("the page is working")
+    </script>
+  </head>
+
+  <body class="bg-gray-100 min-h-screen">
+    <div class="bg-red-500 text-white text-3xl">
+       HELLO
+    </div>
+    <div class="max-w-md mx-auto mt-8">
+      <h1 class="text-2xl font-bold mb-4 text-center">Your Contacts</h1>
+
+      <div class="bg-white rounded-xl shadow">
+        {% for item in user_data %}
+
+        <div class="flex items-center justify-between p-4 border-b">
+          <!-- LEFT -->
+          <div class="flex items-center gap-3">
+            <img
+              src="{{ item.user.profile.avatar.url }}"
+              class="w-12 h-12 rounded-full object-cover"
+            />
+
+            <div class="font-semibold">{{ item.user.username }}</div>
+          </div>
+
+          <!-- RIGHT -->
+          <a
+            href="{% url 'private_chat' item.user.id %}"
+            class="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg"
+          >
+            Chat
+          </a>
+        </div>
+
+        {% empty %}
+
+        <div class="p-6 text-center text-gray-500">No contacts yet.</div>
+
+        {% endfor %}
+      </div>
+    </div>
+  </body>
+</html>

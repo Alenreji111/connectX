@@ -1,0 +1,25 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>create group</title>
+  </head>
+  <body>
+    <h3>Create Group</h3>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="text" name="group_name" placeholder="Group name" required />
+
+      <h4>Select members</h4>
+      {% for user in users %}
+      <label>
+        <input type="checkbox" name="members" value="{{ user.id }}" />
+        {{ user.username }} </label
+      ><br />
+      {% endfor %}
+
+      <button type="submit">Create Group</button>
+    </form>
+  </body>
+</html>
