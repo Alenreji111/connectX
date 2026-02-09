@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html>
 <head>
@@ -52,7 +53,7 @@
          class="w-10 h-10 rounded-full object-cover">
 
     {% endif %}
-
+    
 
         <!-- Name + Message -->
         <div class="flex-1">
@@ -157,10 +158,26 @@ var chatSocket = null;
 
 function openChat(url) {
 
+    // ✅ If socket exists — close and WAIT
     if (chatSocket) {
+
+        chatSocket.onclose = function () {
+
+            console.log("Old socket fully closed");
+
+            chatSocket = null;
+
+            loadChat(url); // open new chat ONLY after close
+        };
+
         chatSocket.close();
-        chatSocket = null;
+        return;
     }
+
+    loadChat(url);
+}
+
+function loadChat(url){
 
     fetch(url)
         .then(res => res.text())
@@ -169,17 +186,7 @@ function openChat(url) {
             const container = document.getElementById("chat-container");
             container.innerHTML = html;
 
-            const scripts = container.querySelectorAll("script");
-
-            scripts.forEach(oldScript => {
-
-                const newScript = document.createElement("script");
-                newScript.textContent = oldScript.textContent;
-
-                document.body.appendChild(newScript);
-                oldScript.remove();
-            });
-
+            
             setTimeout(() => {
 
                 if (typeof connectSocket === "function") {
@@ -187,9 +194,9 @@ function openChat(url) {
                 }
 
             }, 100);
-
         });
 }
+
 </script>
 <script>
 
@@ -225,7 +232,14 @@ notifySocket.onmessage = function(e){
         }
     }
 
+    if(data.type === "delivered"){
+        const tick = document.getElementById("tick-" + data.message_id);
 
+          if(tick){
+            tick.innerText = "✔✔";
+          }
+
+    }
 };
 
 notifySocket.onerror = function(e){
@@ -257,6 +271,9 @@ function closeGroupModal(){
 }
 
 </script>
+
+<script src="{% static 'js/privateChat.js' %}"></script>
+
 
 
 </body>

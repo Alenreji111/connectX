@@ -38,6 +38,7 @@ class Message(models.Model):
     )
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     content = models.TextField()
+    is_delivered = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 

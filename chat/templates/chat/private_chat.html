@@ -1,3 +1,11 @@
+<div id="chat-data"
+     data-room="{{ room_name }}"
+     data-room-id="{{ room.id }}"
+     data-username="{{ request.user.username }}"
+     data-other="{{ other_user.username }}"
+     style="display:none;">
+</div>
+
 <div class="flex flex-col h-full">
   <!-- HEADER -->
   <div class="bg-white shadow p-4 border-b">
@@ -11,25 +19,44 @@
       </span>
     </h2>
   </div>
-  <!-- MESSAGES -->
-  <div
-    id="messages"
-    class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2"
-  >
-    {% for msg in messages %}
-    <div
-      class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}"
-    >
-      <div
-        class="px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}"
-      >
-        {{ msg.content }}
 
-        <div class="text-xs text-gray-600">{{ msg.timestamp|time:"H:i" }}</div>
+  <!-- MESSAGES -->
+<div id="messages"
+     class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2">
+
+  {% for msg in messages %}
+
+    <div class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}">
+
+      <div class="px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %}bg-green-300{% else %}bg-white{% endif %}">
+        
+        <div>{{ msg.content }}</div>
+
+        <div class="text-xs text-gray-600 flex justify-end gap-1 mt-1">
+          {{ msg.timestamp|time:"H:i" }}
+          <span  class="tick" id="tick-{{ msg.id }}">
+
+          {% if msg.sender.id == request.user.id %}
+              {% if msg.is_read %}
+                 ✔✔
+              {% elif msg.is_delivered %}
+                   ✔✔
+              {% else %}
+                   ✔
+              {% endif %}
+          {% endif %}
+          </span>
+
+        </div>
+
       </div>
+
     </div>
-    {% endfor %}
-  </div>
+
+  {% endfor %}
+
+</div>
+
 
   <!-- TYPING -->
   <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div>
@@ -51,9 +78,9 @@
   </div>
 </div>
 
-<script>
+{% comment %} <script>
   var roomName = "{{ room_name }}";
-  const username = "{{ request.user.username }}";
+  var username = "{{ request.user.username }}";
 
   let messageQueue = [];
 
@@ -71,13 +98,13 @@
     };
     chatSocket.onmessage = function (e) {
       const data = JSON.parse(e.data);
-      // ✅ TYPING
+      //  TYPING
       if (data.type === "typing") {
         if (data.username !== username) {
           document.getElementById("typing-indicator").innerText = data.typing
             ? data.username + " is typing..."
             : "";
-            console.log(data.type)
+          console.log(data.type);
         }
 
         return;
@@ -92,7 +119,7 @@
 
         return;
       }
-      // ✅ MESSAGE
+      // MESSAGE
       const messages = document.getElementById("messages");
       const isMe = data.username === username;
 
@@ -108,6 +135,7 @@
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
+                  ${isMe ? `<span id="tick-${data.message_id}">✔</span>` : ""}
                 </div>
             </div>
         `;
@@ -163,4 +191,4 @@
 
   const messagesDiv = document.getElementById("messages");
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
-</script>
+</script> {% endcomment %}

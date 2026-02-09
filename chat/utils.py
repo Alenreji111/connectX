@@ -2,6 +2,7 @@ from .models import Room
 from django.contrib.auth.models import User
 
 def get_private_room(user1, user2):
+    
     if user1.id==user2.id:
         return none
         
@@ -10,8 +11,16 @@ def get_private_room(user1, user2):
 
     room, created = Room.objects.get_or_create(
         name=room_name,
-        defaults={'is_private': True}
+        defaults={
+            'is_private': True,
+            'is_group':False
+        
+        }
     )
 
-    room.users.add(user1, user2)
+    if created:
+        room.users.set([user1, user2])
+
+
+    # room.users.add(user1, user2)
     return room

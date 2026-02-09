@@ -51,7 +51,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         users = await sync_to_async(list)(
-        self.room.users.exclude(id=sender.id)
+        self.room.users.exclude(id=user.id)
         )
 
         for user in users:
@@ -81,6 +81,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 class PrivateChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
+        
         user = self.scope["user"]
         if user.is_anonymous:
             await self.close()
@@ -88,7 +89,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
         
         self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.room_group_name = f"private_{self.room_name}"
+        
 
         
         try:
@@ -96,6 +97,8 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         except Room.DoesNotExist:
             await self.close()
             return
+
+        self.room_group_name = f"room_{self.room.id}"
 
         # security: allow only room members
         is_member = await sync_to_async(
@@ -111,6 +114,15 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         )
 
         await self.accept()
+
+        await sync_to_async(
+            Message.objects.filter(
+                room=self.room,
+                is_delivered=False
+            ).exclude(sender=user).update
+        )(
+            is_delivered=True
+        )
 
         await sync_to_async(UserStatus.objects.update_or_create)(
             user=user,
@@ -144,6 +156,24 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 "count": 0
             }
         )
+
+        undelivered = await sync_to_async(list)(
+            Message.objects.filter(
+                room=self.room,
+                is_delivered=False
+            ).exclude(sender=user)
+        )
+
+        for msg in undelivered:
+
+            await self.channel_layer.group_send(
+                f"user_{msg.sender_id}",
+                {
+                    "type": "message_delivered",
+                    "message_id": msg.id
+                }
+            )
+
 
 
     async def disconnect(self, close_code):
@@ -211,13 +241,18 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         if not message:
             return
 
-        
+        receiver = await sync_to_async(
+            self.room.users.exclude(id=sender.id).first
+        )()
 
-        await sync_to_async(Message.objects.create)(
+
+        msg = await sync_to_async(Message.objects.create)(
             sender=sender,
+            receiver=receiver,
             room=self.room,
             content=message,
-            is_read=False
+            is_read=False,
+            is_delivered=False
         )
 
         await sync_to_async(
@@ -233,6 +268,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 "type": "private_message",
                 "message": message,
                 "username": sender.username,
+                "message_id": msg.id,
             }
         )
         users = await sync_to_async(list)(
@@ -266,10 +302,34 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         ))
 
     async def private_message(self, event):
+
         await self.send(text_data=json.dumps({
+            "type": "private_message",
             "message": event["message"],
             "username": event["username"],
+            "message_id": event["message_id"]
         }))
+
+    # ⭐ MARK AS DELIVERED INSTANTLY
+        user = self.scope["user"]
+
+        msg = await sync_to_async(Message.objects.get)(id=event["message_id"])
+
+        if msg.sender_id != user.id:
+
+            msg.is_delivered = True
+            await sync_to_async(msg.save)()
+
+        # notify sender
+            await self.channel_layer.group_send(
+               f"user_{msg.sender_id}",
+                {
+                    "type": "message_delivered",
+                    "message_id": msg.id,
+                    "room_id": msg.room_id
+                }
+            )
+
 
 
 class GroupChatConsumer(AsyncWebsocketConsumer):
@@ -346,6 +406,15 @@ class UserNotificationConsumer(AsyncWebsocketConsumer):
                 "room_id": event["room_id"],
                 "count": event["count"]
             }))
+
+    async def message_delivered(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "delivered",
+            "message_id": event["message_id"],
+            "room_id": event["room_id"]
+
+        }))
+
 
     
 

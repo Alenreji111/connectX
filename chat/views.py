@@ -30,7 +30,7 @@ def home(request):
 
     rooms = Room.objects.filter(
         users=request.user
-    ).prefetch_related('users__profile').order_by("-last_activity")
+    ).prefetch_related('users__profile').order_by("-last_activity" , "-created_at")
 
     filtered_rooms = []
 
