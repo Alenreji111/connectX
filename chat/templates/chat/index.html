@@ -192,6 +192,9 @@ function loadChat(url){
                 if (typeof connectSocket === "function") {
                     connectSocket();
                 }
+                  if (typeof connectGroupSocket === "function") {
+                      connectGroupSocket();
+                }
 
             }, 100);
         });
@@ -232,14 +235,19 @@ notifySocket.onmessage = function(e){
         }
     }
 
+    const tick = document.getElementById("tick-" + data.message_id);
+
+    if(!tick) return;
+
     if(data.type === "delivered"){
-        const tick = document.getElementById("tick-" + data.message_id);
-
-          if(tick){
-            tick.innerText = "✔✔";
-          }
-
+      tick.innerText = "✔✔";
     }
+
+    else if(data.type === "read"){
+        tick.innerText = "✔✔";
+        tick.style.color = "#3b82f6";
+    }
+
 };
 
 notifySocket.onerror = function(e){
@@ -273,6 +281,8 @@ function closeGroupModal(){
 </script>
 
 <script src="{% static 'js/privateChat.js' %}"></script>
+<script src="{% static 'js/groupChat.js' %}"></script>
+
 
 
 

@@ -133,8 +133,6 @@ function sendPrivateMessage() {
   }
 
   input.value = "";
-}
-
 
   if(input){
 
@@ -161,6 +159,36 @@ function sendPrivateMessage() {
         }, 1000);
     });
   }
+}
+
+
+  // if(input){
+
+  //   input.onkeydown = function(e){
+  //       if(e.key === "Enter"){
+  //           sendPrivateMessage();
+  //       }
+  //   };
+
+  //   input.addEventListener("input", function () {
+
+  //       if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
+  //           APP.chatSocket.send(JSON.stringify({ typing: true }));
+  //       }
+
+  //       clearTimeout(typingTimeout);
+
+  //       typingTimeout = setTimeout(() => {
+
+  //           if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
+  //               APP.chatSocket.send(JSON.stringify({ typing: false }));
+  //           }
+
+  //       }, 1000);
+  //   });
+  // }
 
 const messagesDiv = document.getElementById("messages");
-messagesDiv.scrollTop = messagesDiv.scrollHeight;
+if (messagesDiv) {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}

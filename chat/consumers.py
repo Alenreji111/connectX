@@ -124,6 +124,27 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             is_delivered=True
         )
 
+        unread_messages = await sync_to_async(list)(
+            Message.objects.filter(
+            room=self.room,
+            is_read=False
+            ).exclude(sender=user)
+        )
+
+        for msg in unread_messages:
+            msg.is_read = True
+            await sync_to_async(msg.save)()
+
+            await self.channel_layer.group_send(
+                f"user_{msg.sender_id}",
+                {
+                    "type": "message_read",
+                    "message_id": msg.id,
+                    "room_id": self.room.id
+                }
+            )
+
+
         await sync_to_async(UserStatus.objects.update_or_create)(
             user=user,
             defaults={
@@ -414,6 +435,14 @@ class UserNotificationConsumer(AsyncWebsocketConsumer):
             "room_id": event["room_id"]
 
         }))
+
+    async def message_read(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "read",
+            "message_id": event["message_id"],
+            "room_id": event["room_id"]
+        }))
+
 
 
     
