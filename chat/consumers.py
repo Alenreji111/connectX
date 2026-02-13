@@ -124,17 +124,20 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             is_delivered=True
         )
 
-        unread_messages = await sync_to_async(list)(
+        read_messages = await sync_to_async(list)(
             Message.objects.filter(
             room=self.room,
             is_read=False
             ).exclude(sender=user)
         )
 
-        for msg in unread_messages:
-            msg.is_read = True
-            await sync_to_async(msg.save)()
+        await sync_to_async(
+            Message.objects.filter(
+                id__in=[msg.id for msg in read_messages]
+            ).update
+        )(is_read=True)
 
+        for msg in read_messages:
             await self.channel_layer.group_send(
                 f"user_{msg.sender_id}",
                 {
@@ -243,8 +246,74 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        message = data.get("message")
+        event_type = data.get("type")
+
+        if event_type == "edit":
+            message_id = data.get("message_id")
+            new_text = data.get("message")
+            user = self.scope["user"]
+
+            try:
+                msg = await sync_to_async(Message.objects.get)(id=message_id)
+            except Message.DoesNotExist:
+                return
+        
+            if msg.sender_id != user.id:
+                return
+        
+            msg.content = new_text
+            await sync_to_async(msg.save)()
+        
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "message_edited",
+                    "message_id": message_id,
+                    "message": new_text
+                }
+            )
+            return
+
+        # DELETE MESSAGE
+        if event_type == "delete":
+
+            message_id = data.get("message_id")
+            user = self.scope["user"]
+
+            try:
+                msg = await sync_to_async(Message.objects.get)(id=message_id)
+
+        # security check (VERY IMPORTANT)
+                if msg.sender_id != user.id:
+                    return
+
+                await sync_to_async(
+                     Message.objects.filter(id=message_id).update
+                    )(
+                    is_deleted=True,
+                    content="This message was deleted"
+                )
+
+        # 🔥 broadcast delete to room
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type":"message_deleted",
+                        "message_id": message_id,
+                    }
+                )
+
+            except Exception as e:
+                print("DELETE ERROR:", e)
+
+            return
+
+        
+
+        
         sender = self.scope["user"]
+
+       
 
         if data.get("typing") is not None:
             await self.channel_layer.group_send(
@@ -256,11 +325,16 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 }
             )
             return
+        
+        if event_type != "message":
+            return
 
+        message = data.get("message")
 
 
         if not message:
             return
+
 
         receiver = await sync_to_async(
             self.room.users.exclude(id=sender.id).first
@@ -313,6 +387,9 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                     "count": unread_count
                 }
             )
+
+        
+
         
     async def typing_event(self, event):
         await self.send(text_data=json.dumps({
@@ -350,6 +427,20 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                     "room_id": msg.room_id
                 }
             )
+        
+    async def message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "message_deleted",
+            "message_id": event["message_id"]
+        }))
+
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "message_edited",
+            "message_id": event["message_id"],
+            "message": event["message"]
+        }))
+
 
 
 
@@ -377,6 +468,39 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        if data.get("type") == "delete":
+
+            message_id = data.get("message_id")
+            user = self.scope["user"]
+
+            try:
+                msg = await sync_to_async(Message.objects.get)(id=message_id)
+
+        # security check (VERY IMPORTANT)
+                if msg.sender_id != user.id:
+                    return
+
+                await sync_to_async(
+                        Message.objects.filter(id=message_id).update
+                    )(
+                    is_deleted=True,
+                    content="This message was deleted"
+                )
+
+        # 🔥 broadcast delete to room
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type":"message_deleted",
+                        "message_id": message_id,
+                    }
+                )
+    
+            except Exception as e:
+                print("DELETE ERROR:", e)
+
+            return
+
         message = data.get("message")
 
         await sync_to_async(Message.objects.create)(
@@ -402,8 +526,51 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
+        
+
+        if data.get("action") == "edit":
+            message_id = data.get("message_id")
+            new_text = data.get("message")
+            user = self.scope["user"]
+
+            try:
+                msg = await sync_to_async(Message.objects.get)(id=message_id)
+            except Message.DoesNotExist:
+                return
+        
+            if msg.sender_id != user.id:
+                return
+        
+            msg.content = new_text
+            await sync_to_async(msg.save)()
+        
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "message_edited",
+                    "message_id": message_id,
+                    "message": new_text
+                }
+            )
+            return
+
     async def group_message(self, event):
         await self.send(text_data=json.dumps(event))
+
+    async def message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "deleted",
+            "message_id": event["message_id"]
+        }))
+
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "edited",
+            "message_id": event["message_id"],
+            "message": event["message"]
+        }))
+ 
+
 
 class UserNotificationConsumer(AsyncWebsocketConsumer):
 

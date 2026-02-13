@@ -86,10 +86,6 @@ def private_chat(request, user_id):
     if room is None:
         return HttpResponseForbidden("Invalid private chat.")
 
-    Message.objects.filter(
-        room=room,
-        is_read=False
-    ).exclude(sender=request.user).update(is_read=True)
 
     messages= Message.objects.filter(room=room).order_by("timestamp")
     status, _ = UserStatus.objects.get_or_create(user=other_user)

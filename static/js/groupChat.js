@@ -40,6 +40,15 @@ function connectGroupSocket(){
     APP.chatSocket.onmessage = function(e){
 
         const data = JSON.parse(e.data);
+        
+         if(data.type === "deleted"){
+            const bubble = document.getElementById("msg-" + data.message_id);
+            if(bubble){
+              bubble.innerHTML = "<i class='text-gray-400 text-sm'>Message deleted</i>";
+            }
+            return;
+        }
+
         const box = document.getElementById("messages");
 
         if(!box) return;
@@ -64,6 +73,16 @@ function connectGroupSocket(){
             </div>
         `;
 
+        if(data.type === "edited"){
+          const bubble = document.getElementById("msg-" + data.message_id);
+          if(bubble){
+            bubble.querySelector(".content").innerText = data.message;
+           }
+           return;
+        }
+
+
+
         box.insertAdjacentHTML("beforeend", messageHTML);
         box.scrollTop = box.scrollHeight;
     };
@@ -83,44 +102,33 @@ window.sendGroupMessage = function(){
 
     input.value = "";
 };
+ window.deleteMessage = function(messageId){
+    if(!APP.chatSocket) return;
+
+    if(!confirm("Delete this message?")) return;
+
+    if(APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN){
+
+        APP.chatSocket.send(JSON.stringify({
+            type: "delete",
+            message_id: messageId
+        }));
+
+    }else{
+        console.log("Socket not connected");
+    }
+};
+
+ window.editMessage =function(id, oldText){
+    const newText = prompt("Edit message", oldText);
+    if(!newText) return;
+
+    APP.chatSocket.send(JSON.stringify({
+        action: "edit",
+        message_id: id,
+        message: newText
+    }));
+}
 
 
-    //   APP.chatSocket.onmessage = (e) => {
-    //     const data = JSON.parse(e.data);
-    //     const isMe = data.sender_id == currentUserId;
-    //     const messageHTML = document.getElementById("messages").innerHTML +=
-    //       `<div class="flex ${isMe ? "justify-end" : "justify-start"}">
-    //         <div class="px-4 py-2 rounded-xl max-w-xs ${
-    //             isMe ? "bg-green-300" : "bg-white"
-    //         }">
-
-    //             ${!isMe ? `<div class="text-xs font-semibold text-green-700">
-    //                 ${data.username}
-    //             </div>` : ""}
-
-    //             ${data.message}
-
-    //             <div class="text-xs text-gray-600">
-    //                 now
-    //             </div>
-
-    //         </div>
-    //     </div>
-    // `;
-
-    //   const box = document.getElementById("messages");
-      
-    //   const isNearBottom =
-    //        box.scrollHeight - box.scrollTop <= box.clientHeight + 100;
-
-    //   box.insertAdjacentHTML("beforeend", messageHTML);
-
-    //   if(isNearBottom){
-    //       setTimeout(() => {
-    //         box.scrollTop = box.scrollHeight;
-    //       }, 50);
-    //   }     
-    //   };
-     
-
-
+ 

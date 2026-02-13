@@ -26,13 +26,26 @@
         <div
           class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}"
         >
-          <div
+          <div id="msg-{{ msg.id }}"
             class="px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}"
           >
             {{ msg.sender.username }}: {{ msg.content }}
 
             <div class="text-xs text-gray-600">
               {{ msg.timestamp|time:"H:i" }}
+
+              {% if msg.sender.id == request.user.id %}
+                 <button onclick="editMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
+                       class="text-blue-500 hover:text-blue-700 text-xs font-semibold">
+                       Edit
+                 </button>
+                 <button
+                   onclick="deleteMessage({{ msg.id }})"
+                   class="text-red-500 hover:text-red-700 text-xs font-semibold"
+                 >
+                   Delete
+                 </button>
+              {% endif %}
             </div>
           </div>
         </div>
