@@ -1,5 +1,4 @@
-//   var roomName = "{{ room_name }}";
-//   var username = "{{ request.user.username }}";
+
 window.APP = window.APP || {
   chatSocket: null,
   messageQueue: [],
@@ -272,31 +271,6 @@ function editMessage(id) {
   );
 }
 
-// if(input){
-
-//   input.onkeydown = function(e){
-//       if(e.key === "Enter"){
-//           sendPrivateMessage();
-//       }
-//   };
-
-//   input.addEventListener("input", function () {
-
-//       if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-//           APP.chatSocket.send(JSON.stringify({ typing: true }));
-//       }
-
-//       clearTimeout(typingTimeout);
-
-//       typingTimeout = setTimeout(() => {
-
-//           if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-//               APP.chatSocket.send(JSON.stringify({ typing: false }));
-//           }
-
-//       }, 1000);
-//   });
-// }
 // EDIT CLICK HANDLER
 document.addEventListener("click", function (e) {
   const editBtn = e.target.closest(".edit-btn");
