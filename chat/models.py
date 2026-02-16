@@ -38,6 +38,7 @@ class Message(models.Model):
     )
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     content = models.TextField()
+    
     is_deleted = models.BooleanField(default=False)
     is_delivered = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
@@ -74,3 +75,11 @@ class Contact(models.Model):
     def __str__(self):
         return f"{self.owner} -> {self.contact}"
 
+class Reaction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.ForeignKey("Message", on_delete=models.CASCADE, related_name="reactions")
+    emoji = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'message']

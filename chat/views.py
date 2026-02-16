@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from .models import Room, Message , UserStatus ,Contact
 from django.contrib.auth.models import User
 from .utils import get_private_room
+from django.db.models import Prefetch
 
 
 # Create your views here
@@ -188,10 +189,15 @@ def add_contact(request, user_id):
 def load_private_chat(request, username):
     other_user = User.objects.get(username=username)
 
-    messages = Message.objects.filter(
-        Q(sender=request.user, receiver=other_user) |
-        Q(sender=other_user, receiver=request.user)
-    ).order_by("timestamp")
+    messages = (
+        Message.objects
+            .filter(
+                Q(sender=request.user, receiver=other_user) |
+                Q(sender=other_user, receiver=request.user)
+            )
+            .prefetch_related("reactions")   # 🔥 ADD THIS
+            .order_by("timestamp")
+    )
 
     return render(request, "chat/private_chat.html", {
         "messages": messages,

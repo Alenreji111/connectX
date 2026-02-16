@@ -1,8 +1,10 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import Room, Message , UserStatus
+from .models import Room, Message , UserStatus , Reaction
 from django.utils import timezone
+from django.db.models import Count
+from django.conf import settings
 
 class ChatConsumer(AsyncWebsocketConsumer):
 
@@ -308,6 +310,77 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
             return
 
+        if event_type == "reaction":
+
+            message_id = data.get("message_id")
+            emoji = data.get("emoji")
+            user = self.scope["user"]
+
+
+            try:
+                msg = await sync_to_async(Message.objects.get)(id=message_id)
+        
+                # 🔐 SECURITY CHECK (VERY IMPORTANT)
+                if msg.room_id != self.room.id:
+                    return
+        
+            except Message.DoesNotExist:
+                return
+
+            reaction, created = await sync_to_async(
+                Reaction.objects.get_or_create
+            )(
+                user=user,
+                message=msg,
+                defaults={"emoji": emoji}
+            )
+
+            if not created:
+                if reaction.emoji == emoji:
+                    await sync_to_async(reaction.delete)()
+                    action = "removed"
+                else:
+                    reaction.emoji = emoji
+                    await sync_to_async(reaction.save)()
+                    action = "updated"
+            else:
+                action = "added"
+        
+            reaction_queryset = await sync_to_async(
+                lambda: list(
+                    Reaction.objects
+                    .filter(message=msg)
+                    .select_related("user__profile")
+                )
+            )()
+
+            reactions = {}
+            
+            for reaction in reaction_queryset:
+                emoji = reaction.emoji
+            
+                if emoji not in reactions:
+                    reactions[emoji] = []
+            
+                reactions[emoji].append({
+                    "username": reaction.user.username,
+                    "avatar": reaction.user.profile.avatar.url
+                })
+            
+            print("REACTIONS DATA SENT:", reactions)
+
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "reaction_event",
+                    "message_id": message_id,
+                    "reactions": reactions
+                }
+            )
+        
+            return
+        
         
 
         
@@ -441,7 +514,12 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "message": event["message"]
         }))
 
-
+    async def reaction_event(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "reaction_event",
+            "message_id": event["message_id"],
+            "reactions": event["reactions"],
+        }))
 
 
 class GroupChatConsumer(AsyncWebsocketConsumer):

@@ -1,4 +1,3 @@
-
 window.APP = window.APP || {
   chatSocket: null,
   messageQueue: [],
@@ -122,6 +121,30 @@ function openNewSocket(roomName) {
         if (tick) tick.remove();
       }
 
+      return;
+    }
+
+    if (data.type === "reaction_event") {
+      const box = document.getElementById("reaction-" + data.message_id);
+      if (!box) return;
+
+      box.innerHTML = "";
+
+      Object.entries(data.reactions).forEach(([emoji, users]) => {
+        const span = document.createElement("span");
+        span.className =
+          "bg-gray-200 px-2 py-1 rounded-full text-sm mr-1 cursor-pointer";
+        span.innerHTML = `
+             <span class="mr-1">${emoji}</span>
+             <span class="text-xs">${users.length}</span>`;
+
+        span.onclick = () => {
+          console.log("Popup clicked", emoji, users);
+          showReactionPopup(emoji, users);
+        };
+
+        box.appendChild(span);
+      });
       return;
     }
 
@@ -271,6 +294,74 @@ function editMessage(id) {
   );
 }
 
+function sendReaction(messageId, emoji) {
+  if (!APP.chatSocket) return;
+  APP.chatSocket.send(
+    JSON.stringify({
+      type: "reaction",
+      message_id: messageId,
+      emoji: emoji,
+    }),
+  );
+  const menu = document.getElementById("menu-" + messageId);
+  if (menu) {
+    menu.classList.add("hidden");
+  }
+}
+
+function showReactionPopup(emoji, users) {
+  let sheet = document.getElementById("reaction-sheet");
+
+  if (sheet) sheet.remove();
+
+  sheet = document.createElement("div");
+  sheet.id = "reaction-sheet";
+  sheet.className =
+    "fixed inset-0 flex items-end bg-black bg-opacity-30 backdrop-blur-sm z-50";
+
+  sheet.innerHTML = `
+    <div class="bg-white w-full rounded-t-3xl p-4 animate-slideUp max-h-[60vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2 text-lg font-semibold">
+          <span class="text-2xl">${emoji}</span>
+          <span>Reactions</span>
+        </div>
+        <button onclick="document.getElementById('reaction-sheet').remove()" 
+                class="text-gray-500 text-sm">
+          Close
+        </button>
+      </div>
+
+      <div class="space-y-3">
+       ${users.map((user) => `
+            <div class="flex items-center gap-3">
+
+              <img src="${user.avatar}" 
+                class="w-10 h-10 rounded-full object-cover" />
+  
+              <span class="text-gray-800">
+                ${user.username === APP.username ? "You" : user.username}
+              </span>
+
+            </div>
+        `).join("")}
+      </div>
+
+    </div>
+  `;
+    console.log("Users:", users);
+
+
+  sheet.addEventListener("click", function (e) {
+    if (e.target === sheet) {
+      sheet.remove();
+    }
+  });
+
+  document.body.appendChild(sheet);
+}
+
 // EDIT CLICK HANDLER
 document.addEventListener("click", function (e) {
   const editBtn = e.target.closest(".edit-btn");
@@ -306,6 +397,30 @@ document.addEventListener("click", function (e) {
       message: newText.trim(),
     }),
   );
+});
+
+let pressTimer;
+
+document.addEventListener("mousedown", function (e) {
+  const bubble = e.target.closest("[id^='msg-']");
+  if (!bubble) return;
+
+  pressTimer = setTimeout(() => {
+    const id = bubble.id.split("-")[1];
+    const menu = document.getElementById("menu-" + id);
+
+    if (!menu) return;
+
+    document.querySelectorAll(".reaction-menu").forEach((m) => {
+      if (m !== menu) m.classList.add("hidden");
+    });
+
+    menu.classList.remove("hidden");
+  }, 500); // 500ms hold
+});
+
+document.addEventListener("mouseup", function () {
+  clearTimeout(pressTimer);
 });
 
 const messagesDiv = document.getElementById("messages");
