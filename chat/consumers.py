@@ -403,10 +403,21 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             return
 
         message = data.get("message")
-
-
         if not message:
             return
+        reply_id = data.get("reply_to")
+        reply_message = None
+        
+        if reply_id:
+            try:
+               reply_message = await sync_to_async(
+                    lambda: Message.objects.select_related("sender").get(id=reply_id)
+                )()
+            except Message.DoesNotExist:
+                reply_message = None
+
+
+        
 
 
         receiver = await sync_to_async(
@@ -419,6 +430,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             receiver=receiver,
             room=self.room,
             content=message,
+            reply_to=reply_message,
             is_read=False,
             is_delivered=False
         )
@@ -437,6 +449,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 "message": message,
                 "username": sender.username,
                 "message_id": msg.id,
+                "reply_to": {
+                    "id": reply_message.id,
+                    "content": reply_message.content,
+                    "username": reply_message.sender.username,
+                } if reply_message else None,
             }
         )
         users = await sync_to_async(list)(
@@ -478,7 +495,8 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "type": "private_message",
             "message": event["message"],
             "username": event["username"],
-            "message_id": event["message_id"]
+            "message_id": event["message_id"],
+            "reply_to": event.get("reply_to"),
         }))
 
     # ⭐ MARK AS DELIVERED INSTANTLY

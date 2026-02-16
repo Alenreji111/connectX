@@ -38,7 +38,13 @@ class Message(models.Model):
     )
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     content = models.TextField()
-    
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies"
+    )
     is_deleted = models.BooleanField(default=False)
     is_delivered = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)

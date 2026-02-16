@@ -5,6 +5,7 @@ window.APP = window.APP || {
   username: null,
   otherUser: null,
   typingTimeout: null,
+  replyingTo: null 
 };
 function connectSocket() {
   const data = document.getElementById("chat-data");
@@ -184,6 +185,21 @@ function openNewSocket(roomName) {
          class="px-4 py-2 rounded-xl max-w-xs
          ${isMe ? "bg-green-300" : "bg-white"}">
 
+           ${data.reply_to ? `
+            <div class="bg-gray-100 border-l-4 border-green-500 
+                        px-2 py-1 mb-2 text-xs cursor-pointer"
+                 onclick="scrollToMessage(${data.reply_to.id})">
+
+                <div class="font-semibold text-gray-700">
+                    ${data.reply_to.username === APP.username ? "You" : data.reply_to.username}
+                </div>
+
+                <div class="text-gray-600 truncate">
+                    ${data.reply_to.content}
+                </div>
+            </div>
+        ` : ""}
+
         <!-- MESSAGE TEXT -->
         <div class="msg-text">
             ${data.message}
@@ -220,6 +236,8 @@ function openNewSocket(roomName) {
         </div>
     </div>
 `;
+console.log("PRIVATE MESSAGE EVENT:", data);
+
 
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
@@ -240,6 +258,7 @@ function sendPrivateMessage() {
   const payload = JSON.stringify({
     type: "message",
     message: message,
+    reply_to: APP.replyingTo
   });
 
   if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
@@ -362,6 +381,26 @@ function showReactionPopup(emoji, users) {
   document.body.appendChild(sheet);
 }
 
+function clearReply() {
+  APP.replyingTo = null;
+  document.getElementById("reply-preview").classList.add("hidden");
+}
+function scrollToMessage(id) {
+  const target = document.getElementById("msg-" + id);
+  if (!target) return;
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  target.classList.add("ring-2", "ring-green-400");
+
+  setTimeout(() => {
+    target.classList.remove("ring-2", "ring-green-400");
+  }, 1500);
+}
+
 // EDIT CLICK HANDLER
 document.addEventListener("click", function (e) {
   const editBtn = e.target.closest(".edit-btn");
@@ -422,6 +461,34 @@ document.addEventListener("mousedown", function (e) {
 document.addEventListener("mouseup", function () {
   clearTimeout(pressTimer);
 });
+
+document.addEventListener("click", function (e) {
+  const replyBtn = e.target.closest(".reply-btn");
+  if (!replyBtn) return;
+
+  const id = replyBtn.dataset.id;
+  const text = replyBtn.dataset.text;
+  const user = replyBtn.dataset.user;
+
+  APP.replyingTo = id;
+
+  document.getElementById("reply-user").innerText = user;
+  document.getElementById("reply-text").innerText = text;
+  document.getElementById("reply-preview").classList.remove("hidden");
+});
+
+document.addEventListener("click", function (e) {
+
+  const replyBlock = e.target.closest(".reply-preview");
+  if (!replyBlock) return;
+
+  const replyId = replyBlock.dataset.replyId;
+  if (!replyId) return;
+
+  scrollToMessage(replyId);
+
+});
+
 
 const messagesDiv = document.getElementById("messages");
 if (messagesDiv) {

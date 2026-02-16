@@ -63,6 +63,21 @@
       <div id="msg-{{ msg.id }}"
          data-deleted="{% if msg.is_deleted %}true{% else %}false{% endif %}"
         class="relative px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %}bg-green-300{% else %}bg-white{% endif %}">
+          {% if msg.reply_to %}
+           <div class="reply-preview bg-gray-200 text-xs p-2 rounded mb-1 border-l-4 border-green-500"
+             data-reply-id="{{ msg.reply_to.id }}">
+               <strong>
+                 {% if msg.reply_to.sender.username == request.user.username %}
+                     You
+                 {% else %}
+                     {{ msg.reply_to.sender.username }}
+                 {% endif %}
+               </strong>
+               <div class="truncate">
+                   {{ msg.reply_to.content }}
+               </div>
+           </div>
+         {% endif %}
       <div class="msg-text" >
         {% if msg.is_deleted %}
           <i class="text-gray-400">This message was deleted</i>
@@ -106,6 +121,12 @@
             <span class="blue-tick">✔✔</span>
             {% elif msg.is_delivered %} ✔✔ {% else %} ✔ {% endif %} {% endif %}
           </span>
+           <button class="reply-btn text-gray-500 text-xs"
+            data-id="{{ msg.id }}"
+            data-text="{{ msg.content }}"
+            data-user="{{ msg.sender.username }}">
+               Reply
+           </button>
 
           {% if msg.sender.id == request.user.id and not msg.is_deleted %}
           <button class="edit-btn text-blue-500 text-xs"
@@ -128,6 +149,16 @@
 
   <!-- TYPING -->
   <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div>
+  <div id="reply-preview"
+     class="hidden bg-gray-100 px-3 py-2 border-l-4 border-green-500 text-sm flex justify-between items-start">
+
+      <div>
+          <div id="reply-user" class="font-semibold text-gray-700"></div>
+          <div id="reply-text" class="text-gray-600 truncate max-w-xs"></div>
+      </div>
+
+      <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
+    </div>
 
   <!-- INPUT -->
   <div class="flex gap-2 p-3 bg-white border-t">
