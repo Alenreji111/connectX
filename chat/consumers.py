@@ -5,6 +5,7 @@ from .models import Room, Message , UserStatus , Reaction
 from django.utils import timezone
 from django.db.models import Count
 from django.conf import settings
+from datetime import timedelta
 
 class ChatConsumer(AsyncWebsocketConsumer):
 
@@ -576,6 +577,9 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 if msg.sender_id != user.id:
                     return
 
+                if msg.is_deleted:
+                    return
+
                 await sync_to_async(
                         Message.objects.filter(id=message_id).update
                     )(
@@ -597,33 +601,6 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
 
             return
 
-        message = data.get("message")
-
-        await sync_to_async(Message.objects.create)(
-            sender=self.scope["user"],
-            room=self.room,
-            content=message
-        )
-
-        await sync_to_async(
-            Room.objects.filter(id=self.room.id).update
-        )(
-            last_activity=timezone.now()
-        )
-
-
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "group_message",
-                "message": message,
-                "username": self.scope["user"].username,
-                "sender_id": self.scope["user"].id
-            }
-        )
-
-        
-
         if data.get("action") == "edit":
             message_id = data.get("message_id")
             new_text = data.get("message")
@@ -636,8 +613,16 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         
             if msg.sender_id != user.id:
                 return
+
+            if msg.is_deleted:
+                return
+
+            if timezone.now() - msg.timestamp > timedelta(minutes=15):
+                return
         
             msg.content = new_text
+            msg.is_edited = True
+            msg.edited_at = timezone.now()
             await sync_to_async(msg.save)()
         
             await self.channel_layer.group_send(
@@ -645,10 +630,58 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "message_edited",
                     "message_id": message_id,
-                    "message": new_text
+                    "message": new_text,
+                    "is_edited": True
                 }
             )
             return
+
+        message = data.get("message")
+
+        if not message:
+            return
+
+        reply_id = data.get("reply_to")
+        reply_message = None
+        
+        if reply_id:
+            try:
+                reply_message = await sync_to_async(
+                    Message.objects.select_related("sender").get
+                )(id=reply_id)
+            except Message.DoesNotExist:
+                reply_message = None
+
+        msg = await sync_to_async(Message.objects.create)(
+            sender=self.scope["user"],
+            room=self.room,
+            content=message,
+            reply_to=reply_message
+        )
+
+        await sync_to_async(
+            Room.objects.filter(id=self.room.id).update
+        )(
+            last_activity=timezone.now()
+        )
+
+
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+            "type": "group_message",
+            "message": msg.content,
+            "username": msg.sender.username,
+            "sender_id": msg.sender.id,
+            "message_id": msg.id,  
+            "reply_to": {
+                "id": reply_message.id,
+                "content": reply_message.content,
+                "username": reply_message.sender.username
+                } if reply_message else None,
+            }
+        )
+
 
     async def group_message(self, event):
         await self.send(text_data=json.dumps(event))

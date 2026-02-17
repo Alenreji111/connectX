@@ -17,44 +17,93 @@
       <div class="bg-white shadow p-4 border-b">
         <h2 class="font-semibold text-lg">Group: {{ room.name }}</h2>
       </div>
+
       <!-- MESSAGES -->
       <div
         id="messages"
         class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2"
       >
-        {% for msg in messages %}
-        <div
-          class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}"
-        >
-          <div id="msg-{{ msg.id }}"
-            class="px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}"
-          >
-            {{ msg.sender.username }}: {{ msg.content }}
+       {% for msg in messages %}
+<div class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}">
 
-            <div class="text-xs text-gray-600">
-              {{ msg.timestamp|time:"H:i" }}
+  <div id="msg-{{ msg.id }}"
+       class="relative px-4 py-2 rounded-xl max-w-xs
+       {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}">
 
-              {% if msg.sender.id == request.user.id %}
-                 <button onclick="editMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
-                       class="text-blue-500 hover:text-blue-700 text-xs font-semibold">
-                       Edit
-                 </button>
-                 <button
-                   onclick="deleteMessage({{ msg.id }})"
-                   class="text-red-500 hover:text-red-700 text-xs font-semibold"
-                 >
-                   Delete
-                 </button>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-        {% endfor %}
+    {% if not msg.sender.id == request.user.id %}
+      <div class="text-xs font-semibold text-green-700">
+        {{ msg.sender.username }}
       </div>
+    {% endif %}
+
+    {% if msg.reply_to %}
+      <div class="reply-preview bg-gray-200 text-xs p-2 rounded mb-1 border-l-4 border-green-500 cursor-pointer"
+           data-reply-id="{{ msg.reply_to.id }}">
+        <strong>
+          {% if msg.reply_to.sender.username == request.user.username %}
+            You
+          {% else %}
+            {{ msg.reply_to.sender.username }}
+          {% endif %}
+        </strong>
+        <div class="truncate">
+          {{ msg.reply_to.content }}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="msg-text">
+      {{ msg.content }}
+      {% if msg.is_edited %}
+        <span class="text-gray-400 text-xs ml-1">(edited)</span>
+      {% endif %}
+    </div>
+    {% if not msg.is_deleted %}
+    <div class="controls text-xs text-gray-600 mt-1">
+      {{ msg.timestamp|time:"H:i" }}
+
+      <button class="reply-btn text-gray-500 text-xs ml-2"
+              data-id="{{ msg.id }}"
+              data-text="{{ msg.content|escapejs }}"
+              data-user="{{ msg.sender.username }}">
+        Reply
+      </button>
+
+      {% if msg.sender.id == request.user.id %}
+        {% if msg.timestamp|timesince < "15 minutes" %}
+        <button onclick="editMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
+                class="text-blue-500 hover:text-blue-700 text-xs font-semibold ml-2">
+          Edit
+        </button>
+        {% endif %}
+      
+
+        <button onclick="deleteMessage({{ msg.id }})"
+                class="text-red-500 hover:text-red-700 text-xs font-semibold ml-2">
+          Delete
+        </button>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endfor %}
+</div> 
 
       <!-- TYPING -->
       <!-- <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div> -->
+      
+    <div id="reply-preview"
+     class="hidden bg-gray-100 px-3 py-2 border-l-4 border-green-500 text-sm flex justify-between items-start">
 
+        <div>
+          <div id="reply-user" class="font-semibold text-gray-700"></div>
+          <div id="reply-text" class="text-gray-600 truncate max-w-xs"></div>
+        </div>
+
+        <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
+    </div>
       <!-- INPUT -->
       <div class="flex gap-2 p-3 bg-white border-t">
         <input
@@ -70,7 +119,6 @@
           Send
         </button>
       </div>
-    </div>
 
     
   </body>
