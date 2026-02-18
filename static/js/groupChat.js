@@ -54,6 +54,7 @@ function connectGroupSocket(){
                 bubble.querySelector(".msg-text").innerHTML =
                     "<i class='text-gray-400'>This message was deleted</i>";
             }, 200);
+
         
             const controls = bubble.querySelector(".controls");
             if(controls){
@@ -62,6 +63,20 @@ function connectGroupSocket(){
         
             return;
         }
+        
+        if(data.type === "deleted_for_me"){
+
+            const bubble = document.getElementById("msg-" + data.message_id);
+            if(!bubble) return;
+        
+            bubble.classList.add("opacity-0", "transition", "duration-300");
+        
+            setTimeout(() => {
+                bubble.remove();
+            }, 300);
+        
+            return;
+        }        
 
         // EDIT
         if(data.type === "edited"){
@@ -122,6 +137,18 @@ function connectGroupSocket(){
                         Reply
                     </button>
 
+                    ${isMe ? `
+                    <button onclick="editMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
+                            class="text-blue-500 text-xs ml-2">
+                      Edit
+                    </button>
+            
+                    <button onclick="deleteMessage(${data.message_id})"
+                            class="text-red-500 text-xs ml-2">
+                      Delete
+                    </button>
+                      ` : ""}
+
                 </div>
             </div>
         `;
@@ -150,22 +177,64 @@ window.sendGroupMessage = function(){
     input.value = "";
     clearReply();
 };
- window.deleteMessage = function(messageId){
-    if(!APP.chatSocket) return;
+window.deleteMessage = function(messageId){
 
-    if(!confirm("Delete this message?")) return;
+  let modal = document.getElementById("delete-modal");
+  if(modal) modal.remove();
 
-    if(APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN){
+  modal = document.createElement("div");
+  modal.id = "delete-modal";
+  modal.className =
+    "fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50";
 
-        APP.chatSocket.send(JSON.stringify({
-            type: "delete",
-            message_id: messageId
-        }));
+  modal.innerHTML = `
+    <div class="bg-white p-5 rounded-xl w-72 text-center space-y-4">
+      <h3 class="font-semibold text-lg">Delete message?</h3>
 
-    }else{
-        console.log("Socket not connected");
-    }
+      <button id="delete-me"
+        class="w-full bg-gray-200 py-2 rounded-lg">
+        Delete for me
+      </button>
+
+      <button id="delete-everyone"
+        class="w-full bg-red-500 text-white py-2 rounded-lg">
+        Delete for everyone
+      </button>
+
+      <button id="cancel-delete"
+        class="w-full text-gray-500 text-sm">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  document.getElementById("delete-me").onclick = function(){
+    sendDelete(messageId, "me");
+    modal.remove();
+  };
+
+  document.getElementById("delete-everyone").onclick = function(){
+    sendDelete(messageId, "everyone");
+    modal.remove();
+  };
+
+  document.getElementById("cancel-delete").onclick = function(){
+    modal.remove();
+  };
 };
+
+function sendDelete(id, mode){
+  if(APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN){
+    APP.chatSocket.send(JSON.stringify({
+      type: "delete",
+      mode: mode,
+      message_id: id
+    }));
+  }
+}
+
 
  window.editMessage =function(id, oldText){
     const newText = prompt("Edit message", oldText);

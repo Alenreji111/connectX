@@ -15,7 +15,7 @@
     <div class="flex flex-col h-full">
       <!-- HEADER -->
       <div class="bg-white shadow p-4 border-b">
-        <h2 class="font-semibold text-lg">Group: {{ room.name }}</h2>
+        <h2 class="font-semibold text-lg">{{ room.name }}</h2>
       </div>
 
       <!-- MESSAGES -->
@@ -53,7 +53,11 @@
     {% endif %}
 
     <div class="msg-text">
+     {% if msg.is_deleted %}
+      <i class="text-gray-400 italic">This message was deleted</i>
+     {% else %}
       {{ msg.content }}
+     {% endif %}
       {% if msg.is_edited %}
         <span class="text-gray-400 text-xs ml-1">(edited)</span>
       {% endif %}

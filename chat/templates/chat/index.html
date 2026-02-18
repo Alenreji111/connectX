@@ -42,17 +42,35 @@
       >
 
         <!-- Avatar -->
-    {% if room.is_group and room.avatar %}
+   {% if room.is_group %}
 
-    <img src="{{ room.avatar.url }}"
-         class="w-10 h-10 rounded-full object-cover">
-
+    {% if room.avatar %}
+        <img src="{{ room.avatar.url }}"
+             class="w-10 h-10 rounded-full object-cover">
     {% else %}
-
-     <img src="{{ room.other_user.profile.avatar.url }}"
-         class="w-10 h-10 rounded-full object-cover">
-
+        <!-- WhatsApp-style group fallback -->
+        <div class="w-10 h-10 rounded-full bg-gray-400
+                    flex items-center justify-center text-white text-lg">
+            👥
+        </div>
     {% endif %}
+
+{% else %}
+
+    {% if room.other_user.profile.avatar.name != "avatars/default.png" %}
+        <img src="{{ room.other_user.profile.avatar.url }}"
+             class="w-10 h-10 rounded-full object-cover">
+    {% else %}
+        <!-- First letter fallback -->
+        <div class="w-10 h-10 rounded-full bg-green-500
+                    flex items-center justify-center
+                    text-white font-semibold">
+            {{ room.other_user.username|first|upper }}
+        </div>
+    {% endif %}
+
+{% endif %}
+
     
 
         <!-- Name + Message -->

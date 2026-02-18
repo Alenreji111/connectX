@@ -46,6 +46,7 @@ class Message(models.Model):
         related_name="replies"
     )
     is_deleted = models.BooleanField(default=False)
+    deleted_for = models.ManyToManyField(User, related_name="deleted_messages", blank=True)
     is_edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
     is_delivered = models.BooleanField(default=False)

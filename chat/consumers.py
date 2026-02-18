@@ -568,24 +568,34 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         if data.get("type") == "delete":
 
             message_id = data.get("message_id")
+            mode = data.get("mode")
             user = self.scope["user"]
 
             try:
                 msg = await sync_to_async(Message.objects.get)(id=message_id)
+                if mode == "me":
+                    await sync_to_async(msg.deleted_for.add)(user)
+                
+                    await self.send(text_data=json.dumps({
+                        "type": "deleted_for_me",
+                        "message_id": message_id
+                    }))
+                    return
 
+                if mode == "everyone":
         # security check (VERY IMPORTANT)
-                if msg.sender_id != user.id:
-                    return
-
-                if msg.is_deleted:
-                    return
-
-                await sync_to_async(
-                        Message.objects.filter(id=message_id).update
-                    )(
-                    is_deleted=True,
-                    content="This message was deleted"
-                )
+                    if msg.sender_id != user.id:
+                        return
+    
+                    if msg.is_deleted:
+                        return
+    
+                    await sync_to_async(
+                            Message.objects.filter(id=message_id).update
+                        )(
+                        is_deleted=True,
+                        content="This message was deleted"
+                    )
 
         # 🔥 broadcast delete to room
                 await self.channel_layer.group_send(
@@ -600,6 +610,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 print("DELETE ERROR:", e)
 
             return
+
 
         if data.get("action") == "edit":
             message_id = data.get("message_id")

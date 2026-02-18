@@ -126,7 +126,12 @@ def group_chat(request, room_id):
     if request.user not in room.users.all():
         return HttpResponseForbidden("Not allowed")
 
-    messages = Message.objects.filter(room=room).order_by("timestamp")
+    messages = (
+        Message.objects
+            .filter(room=room)
+            .exclude(deleted_for=request.user)
+            .order_by("timestamp")
+    )
 
     return render(request, "chat/group_chat.html", {
         "room": room,
