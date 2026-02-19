@@ -5,6 +5,7 @@ from .models import Room, Message , UserStatus ,Contact
 from django.contrib.auth.models import User
 from .utils import get_private_room
 from django.db.models import Prefetch
+from accounts.models import Block
 
 
 # Create your views here
@@ -87,6 +88,10 @@ def private_chat(request, user_id):
     if room is None:
         return HttpResponseForbidden("Invalid private chat.")
 
+    is_blocked = Block.objects.filter(
+        blocker=request.user,
+        blocked=other_user
+    ).exists()
 
     messages= Message.objects.filter(room=room).order_by("timestamp")
     status, _ = UserStatus.objects.get_or_create(user=other_user)
@@ -97,7 +102,8 @@ def private_chat(request, user_id):
         "other_user": other_user,
         "messages":messages,
         "status":status,
-        "contacts": contacts
+        "contacts": contacts,
+        "is_blocked": is_blocked
     })
 
 def create_group(request):

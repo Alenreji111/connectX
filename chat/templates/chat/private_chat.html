@@ -42,6 +42,10 @@
   <div class="bg-white shadow p-4 border-b">
     <h2 class="font-semibold text-lg">
       {{ other_user.username }}
+      <button id="block-btn"
+        class="ml-3 text-sm text-red-500 hover:underline">
+        Block
+      </button>
 
       <span id="status-text" class="text-sm text-gray-500 ml-2">
         {% if status.is_online %}
@@ -160,6 +164,15 @@
       <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
     </div>
 
+   <div id="blocked-banner"
+     class="hidden bg-red-100 text-red-600 text-sm p-2 text-center">
+    You blocked this user. Unblock to send messages.
+   </div>
+
+   <script>
+    {% comment %} window.BLOCK_URL = "{% url 'accounts:toggle_block' other_user.username %}"; {% endcomment %}
+    window.IS_BLOCKED = {{ is_blocked|yesno:"true,false" }};
+   </script>
   <!-- INPUT -->
   <div class="flex gap-2 p-3 bg-white border-t">
     <input

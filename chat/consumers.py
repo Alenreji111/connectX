@@ -6,6 +6,8 @@ from django.utils import timezone
 from django.db.models import Count
 from django.conf import settings
 from datetime import timedelta
+from accounts.models import Block
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
 
@@ -404,8 +406,10 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             return
 
         message = data.get("message")
+
         if not message:
             return
+
         reply_id = data.get("reply_to")
         reply_message = None
         
@@ -424,6 +428,13 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         receiver = await sync_to_async(
             self.room.users.exclude(id=sender.id).first
         )()
+
+        is_blocked = await sync_to_async(
+            Block.objects.filter(blocker=receiver, blocked=sender).exists
+        )()
+
+        if is_blocked:
+            return
 
 
         msg = await sync_to_async(Message.objects.create)(

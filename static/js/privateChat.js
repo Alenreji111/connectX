@@ -401,6 +401,26 @@ function scrollToMessage(id) {
   }, 1500);
 }
 
+function showBlockedBanner(show){
+  const banner = document.getElementById("blocked-banner");
+  const input = document.getElementById("messageInput");
+
+  if(show){
+    banner.classList.remove("hidden");
+    input.disabled = true;
+  } else {
+    banner.classList.add("hidden");
+    input.disabled = false;
+  }
+}
+
+function getCSRFToken() {
+  return document.cookie
+    .split("; ")
+    .find(row => row.startsWith("csrftoken"))
+    ?.split("=")[1];
+}
+
 // EDIT CLICK HANDLER
 document.addEventListener("click", function (e) {
   const editBtn = e.target.closest(".edit-btn");
@@ -488,6 +508,47 @@ document.addEventListener("click", function (e) {
   scrollToMessage(replyId);
 
 });
+
+document.addEventListener("click", async function (e) {
+  const btn = e.target.closest("#block-btn");
+  if (!btn) return;
+
+  const username = APP.otherUser;
+
+  try {
+    const res = await fetch(`/accounts/block/${username}/`, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": getCSRFToken(),
+      },
+    });
+
+    if (!res.ok) throw new Error("Request failed");
+
+    const result = await res.json();
+    console.log("BLOCK RESPONSE:", result);
+
+    if (result.status === "blocked") {
+      btn.innerText = "Unblock";
+      showBlockedBanner(true);
+    } else {
+      btn.innerText = "Block";
+      showBlockedBanner(false);
+    }
+
+  } catch (err) {
+    console.error("Block error:", err);
+  }
+});
+
+
+document.addEventListener("DOMContentLoaded", function(){
+    if(window.IS_BLOCKED){
+        showBlockedBanner(true);
+        document.getElementById("block-btn").innerText = "Unblock";
+    }
+});
+
 
 
 const messagesDiv = document.getElementById("messages");
