@@ -171,110 +171,111 @@
 
 
 <script>
-var chatSocket = null;
 
-
-function openChat(url) {
-
-    // ✅ If socket exists — close and WAIT
-    if (chatSocket) {
-
-        chatSocket.onclose = function () {
-
-            console.log("Old socket fully closed");
-
-            chatSocket = null;
-
-            loadChat(url); // open new chat ONLY after close
-        };
-
-        chatSocket.close();
-        return;
-    }
-
-    loadChat(url);
-}
-
-function loadChat(url){
-
-    fetch(url)
-        .then(res => res.text())
-        .then(html => {
-
-            const container = document.getElementById("chat-container");
-            container.innerHTML = html;
-
-            
-            setTimeout(() => {
-
-                if (typeof connectSocket === "function") {
-                    connectSocket();
-                }
+  function openChat(url) {
+  
+      // 🔥 Close private socket if exists
+      if (window.APP && APP.privateSocket) {
+          APP.privateSocket.close();
+          APP.privateSocket = null;
+          console.log("Private socket closed");
+      }
+  
+      // 🔥 Close group socket if exists
+      if (window.APP && APP.groupSocket) {
+          APP.groupSocket.close();
+          APP.groupSocket = null;
+          console.log("Group socket closed");
+      }
+  
+      // Reset active room
+      if (window.APP) {
+          APP.activeRoom = null;
+      }
+  
+      loadChat(url);
+  }
+  
+  function loadChat(url){
+  
+      fetch(url)
+          .then(res => res.text())
+          .then(html => {
+  
+              document.getElementById("chat-container").innerHTML = html;
+  
+              setTimeout(() => {
+  
+                  if (typeof connectSocket === "function") {
+                      connectSocket();      // private
+                  }
+  
                   if (typeof connectGroupSocket === "function") {
-                      connectGroupSocket();
-                }
-
-            }, 100);
-        });
-}
-
+                      connectGroupSocket(); // group
+                  }
+  
+              }, 50);
+          });
+  }
 </script>
+
+
 <script>
 
-const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-
-const notifySocket = new WebSocket(
-    protocol + window.location.host + "/ws/notify/"
-);
-
-notifySocket.onopen = function(){
-    console.log("Notify socket connected");
-};
-
-notifySocket.onmessage = function(e){
-
-  const data = JSON.parse(e.data);
-  if(data.type === "unread_update"){
-
-        const room = document.getElementById("room-" + data.room_id);
-        const badge = document.getElementById("unread-" + data.room_id);
-
-        if(room){
-            const parent = room.parentNode;
-            parent.prepend(room); // 🔥 moves to top
-        }
-
-        if(data.count > 0){
-            badge.innerText = data.count;
-            badge.style.display = "flex";
-        }else{
-
-        badge.style.display = "none";
-        }
-    }
-
-    const tick = document.getElementById("tick-" + data.message_id);
-
-    if(!tick) return;
-
-    if(data.type === "delivered"){
-      tick.innerText = "✔✔";
-    }
-
-    else if(data.type === "read"){
+  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+  
+  const notifySocket = new WebSocket(
+      protocol + window.location.host + "/ws/notify/"
+  );
+  
+  notifySocket.onopen = function(){
+      console.log("Notify socket connected");
+  };
+  
+  notifySocket.onmessage = function(e){
+  
+    const data = JSON.parse(e.data);
+    if(data.type === "unread_update"){
+  
+          const room = document.getElementById("room-" + data.room_id);
+          const badge = document.getElementById("unread-" + data.room_id);
+  
+          if(room){
+              const parent = room.parentNode;
+              parent.prepend(room); // 🔥 moves to top
+          }
+  
+          if(data.count > 0){
+              badge.innerText = data.count;
+              badge.style.display = "flex";
+          }else{
+  
+          badge.style.display = "none";
+          }
+      }
+  
+      const tick = document.getElementById("tick-" + data.message_id);
+  
+      if(!tick) return;
+  
+      if(data.type === "delivered"){
         tick.innerText = "✔✔";
-        tick.style.color = "#3b82f6";
-    }
-
-};
-
-notifySocket.onerror = function(e){
-    console.log("Notify socket error", e);
-};
-
-notifySocket.onclose = function(){
-    console.log("Notify socket closed");
-};
+      }
+  
+      else if(data.type === "read"){
+          tick.innerText = "✔✔";
+          tick.style.color = "#3b82f6";
+      }
+  
+  };
+  
+  notifySocket.onerror = function(e){
+      console.log("Notify socket error", e);
+  };
+  
+  notifySocket.onclose = function(){
+      console.log("Notify socket closed");
+  };
 
 </script>
 

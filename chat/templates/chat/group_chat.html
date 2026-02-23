@@ -15,7 +15,10 @@
     <div class="flex flex-col h-full">
       <!-- HEADER -->
       <div class="bg-white shadow p-4 border-b">
-        <h2 class="font-semibold text-lg">{{ room.name }}</h2>
+        <h2 class="font-semibold text-lg cursor-pointer"
+            onclick="openGroupInfo()">
+            {{ room.name }}
+        </h2>
       </div>
 
       <!-- MESSAGES -->
@@ -75,14 +78,14 @@
 
       {% if msg.sender.id == request.user.id %}
         {% if msg.timestamp|timesince < "15 minutes" %}
-        <button onclick="editMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
+        <button onclick="groupEditMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
                 class="text-blue-500 hover:text-blue-700 text-xs font-semibold ml-2">
           Edit
         </button>
         {% endif %}
       
 
-        <button onclick="deleteMessage({{ msg.id }})"
+        <button onclick="groupDeleteMessage({{ msg.id }})"
                 class="text-red-500 hover:text-red-700 text-xs font-semibold ml-2">
           Delete
         </button>
@@ -94,6 +97,100 @@
 </div>
 {% endfor %}
 </div> 
+
+<div id="groupInfoModal"
+     class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+
+  <div class="bg-white w-96 p-6 rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
+
+    <!-- Close -->
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold">Group Info</h2>
+      <button onclick="closeGroupInfo()" class="text-red-500">X</button>
+    </div>
+
+    <!-- Avatar -->
+    <div class="flex flex-col items-center gap-2 mb-4">
+      {% if room.avatar %}
+        <img src="{{ room.avatar.url }}"
+             class="w-24 h-24 rounded-full object-cover">
+      {% else %}
+        <div class="w-24 h-24 rounded-full bg-gray-400
+                    flex items-center justify-center text-white text-3xl">
+          👥
+        </div>
+      {% endif %}
+
+      <div class="font-semibold text-lg">
+        {{ room.name }}
+      </div>
+
+      <div class="text-sm text-gray-500">
+        Your role: {{ user_role|title }}
+      </div>
+    </div>
+
+    <!-- Members -->
+    <div class="mt-4">
+      <h3 class="font-semibold mb-2">Members</h3>
+
+      {% for member in room.groupmember_set.all %}
+      <div class="flex justify-between items-center p-2 border-b">
+
+        <div>
+          {{ member.user.username }}
+
+          {% if member.role == "creator" %}
+            <span class="text-xs bg-purple-500 text-white px-2 rounded ml-2">
+              Creator
+            </span>
+          {% elif member.role == "admin" %}
+            <span class="text-xs bg-blue-500 text-white px-2 rounded ml-2">
+              Admin
+            </span>
+          {% endif %}
+        </div>
+
+        {% if user_role == "creator" or user_role == "admin" %}
+          {% if member.user != request.user %}
+            <button onclick="removeMember({{ member.user.id }})"
+                    class="text-red-500 text-xs">
+              Remove
+            </button>
+
+          {% endif %}
+        {% endif %}
+
+      </div>
+      {% endfor %}
+
+      {% if user_role == "creator" or user_role == "admin" %}
+        <div class="mt-4">
+          <button onclick="showAddMember()"
+                  class="bg-green-500 text-white px-3 py-1 rounded">
+            + Add Member
+          </button>
+        </div>
+      {% endif %}
+
+      <div id="addMemberSection" class="hidden mt-4">
+          <h3 class="font-semibold mb-2">Select User</h3>
+        
+          {% for relation in available_contacts %}
+            <div class="flex justify-between items-center p-1">
+              <span>{{ relation.contact.username }}</span>
+              <button onclick="addMember({{ relation.contact.id}})"
+                      class="text-green-600 text-xs">
+                Add
+              </button>
+            </div>
+          {% endfor %}
+       </div>
+
+    </div>
+
+  </div>
+</div>
 
       <!-- TYPING -->
       <!-- <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div> -->

@@ -1,7 +1,7 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import Room, Message , UserStatus , Reaction
+from .models import Room, Message , UserStatus , Reaction, GroupMember
 from django.utils import timezone
 from django.db.models import Count
 from django.conf import settings
@@ -657,6 +657,77 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 }
             )
             return
+        
+        if data.get("action") == "add_member":
+
+            target_id = data.get("user_id")
+            user = self.scope["user"]
+        
+            try:
+                membership = await sync_to_async(GroupMember.objects.get)(
+                    room=self.room,
+                    user=user
+                )
+            except GroupMember.DoesNotExist:
+                return
+        
+            # Only creator/admin can add
+            if membership.role not in ["creator", "admin"]:
+                return
+        
+            # Prevent duplicate
+            exists = await sync_to_async(
+                GroupMember.objects.filter(
+                    room=self.room,
+                    user__id=target_id
+                ).exists
+            )()
+        
+            if exists:
+                return
+        
+            # Add new member
+            await sync_to_async(GroupMember.objects.create)(
+                room=self.room,
+                user_id=target_id,
+                role="member"
+            )
+        
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "member_added",
+                    "user_id": target_id
+                }
+            )
+            return
+        
+        if data.get("action") == "remove_member":
+
+            target_id = data.get("user_id")
+            user = self.scope["user"]
+        
+            role = await sync_to_async(GroupMember.objects.get)(
+                room=self.room,
+                user=user
+            )
+        
+            if role.role not in ["creator", "admin"]:
+                return
+        
+            await sync_to_async(GroupMember.objects.filter(
+                room=self.room,
+                user_id=target_id
+            ).delete)()
+        
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "member_removed",
+                    "user_id": target_id
+                }
+            )
+            return
 
         message = data.get("message")
 
@@ -688,12 +759,20 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         )
 
 
+
+        member = await sync_to_async(GroupMember.objects.get)(
+             room=self.room,
+             user=msg.sender
+        )
+
+
         await self.channel_layer.group_send(
             self.room_group_name,
             {
             "type": "group_message",
             "message": msg.content,
             "username": msg.sender.username,
+            "role": member.role,
             "sender_id": msg.sender.id,
             "message_id": msg.id,  
             "reply_to": {
@@ -719,6 +798,12 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "type": "edited",
             "message_id": event["message_id"],
             "message": event["message"]
+        }))
+
+    async def member_added(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "member_added",
+            "user_id": event["user_id"]
         }))
  
 

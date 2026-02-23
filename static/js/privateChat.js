@@ -1,5 +1,5 @@
 window.APP = window.APP || {
-  chatSocket: null,
+  privateSocket: null,
   messageQueue: [],
   activeRoom: null,
   username: null,
@@ -26,8 +26,8 @@ function connectSocket() {
     return;
   }
 
-  if (APP.chatSocket) {
-    const oldSocket = APP.chatSocket;
+  if (APP.privateSocket) {
+    const oldSocket = APP.privateSocket;
 
     oldSocket.onclose = () => {
       console.log("Old socket closed");
@@ -45,17 +45,17 @@ function connectSocket() {
 function openNewSocket(roomName) {
   const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
-  APP.chatSocket = new WebSocket(
+  APP.privateSocket = new WebSocket(
     protocol + window.location.host + "/ws/private/" + roomName + "/",
   );
 
-  APP.chatSocket.onopen = function () {
+  APP.privateSocket.onopen = function () {
     APP.activeRoom = roomName;
 
     console.log("Private socket connected:", roomName);
 
     while (APP.messageQueue.length > 0) {
-      APP.chatSocket.send(APP.messageQueue.shift());
+      APP.privateSocket.send(APP.messageQueue.shift());
     }
   };
   const input = document.getElementById("messageInput");
@@ -68,21 +68,21 @@ function openNewSocket(roomName) {
     };
 
     input.addEventListener("input", function () {
-      if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-        APP.chatSocket.send(JSON.stringify({ typing: true }));
+      if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
+        APP.privateSocket.send(JSON.stringify({ typing: true }));
       }
 
       clearTimeout(APP.typingTimeout);
 
       APP.typingTimeout = setTimeout(() => {
-        if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-          APP.chatSocket.send(JSON.stringify({ typing: false }));
+        if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
+          APP.privateSocket.send(JSON.stringify({ typing: false }));
         }
       }, 1000);
     });
   }
 
-  APP.chatSocket.onmessage = function (e) {
+  APP.privateSocket.onmessage = function (e) {
     const data = JSON.parse(e.data);
 
     if (data.type === "message_edited") {
@@ -243,7 +243,7 @@ console.log("PRIVATE MESSAGE EVENT:", data);
     messages.scrollTop = messages.scrollHeight;
   };
 
-  APP.chatSocket.onclose = function () {
+  APP.privateSocket.onclose = function () {
     console.log("Socket closed");
     APP.activeRoom = null;
   };
@@ -261,9 +261,9 @@ function sendPrivateMessage() {
     reply_to: APP.replyingTo
   });
 
-  if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-    APP.chatSocket.send(payload);
-    APP.chatSocket.send(JSON.stringify({ typing: false }));
+  if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
+    APP.privateSocket.send(payload);
+    APP.privateSocket.send(JSON.stringify({ typing: false }));
   } else {
     APP.messageQueue.push(payload);
   }
@@ -272,12 +272,12 @@ function sendPrivateMessage() {
 }
 
 function deleteMessage(messageId) {
-  if (!APP.chatSocket) return;
+  if (!APP.privateSocket) return;
 
   if (!confirm("Delete this message?")) return;
 
-  if (APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN) {
-    APP.chatSocket.send(
+  if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
+    APP.privateSocket.send(
       JSON.stringify({
         type: "delete",
         message_id: messageId,
@@ -304,7 +304,7 @@ function editMessage(id) {
 
   console.log("SENDING EDIT:", id, newText);
 
-  APP.chatSocket.send(
+  APP.privateSocket.send(
     JSON.stringify({
       type: "edit",
       message_id: id,
@@ -314,8 +314,8 @@ function editMessage(id) {
 }
 
 function sendReaction(messageId, emoji) {
-  if (!APP.chatSocket) return;
-  APP.chatSocket.send(
+  if (!APP.privateSocket) return;
+  APP.privateSocket.send(
     JSON.stringify({
       type: "reaction",
       message_id: messageId,
@@ -449,7 +449,7 @@ document.addEventListener("click", function (e) {
 
   console.log("SENDING EDIT:", id, newText);
 
-  APP.chatSocket.send(
+  APP.privateSocket.send(
     JSON.stringify({
       type: "edit",
       message_id: id,

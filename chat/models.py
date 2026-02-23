@@ -5,11 +5,23 @@ from django.utils import timezone
 
 class Room(models.Model):
     name = models.CharField(max_length=255)
-    users = models.ManyToManyField(User)
+    users = models.ManyToManyField(
+        User,
+        through="GroupMember",
+        related_name="rooms"
+    )
     is_private = models.BooleanField(default=False)
     is_group = models.BooleanField(default=False)
     avatar = models.ImageField(
         upload_to="room_avatars/",
+        null=True,
+        blank=True
+    )
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="created_groups",
         null=True,
         blank=True
     )
@@ -92,3 +104,25 @@ class Reaction(models.Model):
 
     class Meta:
         unique_together = ['user', 'message']
+
+
+class GroupMember(models.Model):
+
+    ROLE_CHOICES = (
+        ("creator", "Creator"),
+        ("admin", "Admin"),
+        ("member", "Member"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="member")
+
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "room")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role}"

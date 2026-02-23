@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
-from .models import Room, Message , UserStatus ,Contact
+from .models import Room, Message , UserStatus ,Contact , GroupMember
 from django.contrib.auth.models import User
 from .utils import get_private_room
 from django.db.models import Prefetch
@@ -113,12 +113,22 @@ def create_group(request):
 
         room = Room.objects.create(
             name=group_name,
-            is_group=True
+            is_group=True,
+            created_by=request.user
         )
 
-        room.users.add(request.user)
-        for uid in member_ids:
-            room.users.add(uid)
+        GroupMember.objects.create(
+            user=request.user,
+            room=room,
+            role="creator"
+        )
+
+        for user_id in member_ids:
+            GroupMember.objects.create(
+                user_id=user_id,
+                room=room,
+                role="member"
+            )
 
         return redirect("home")
 
@@ -129,19 +139,35 @@ def create_group(request):
 def group_chat(request, room_id):
     room = get_object_or_404(Room, id=room_id, is_group=True)
 
-    if request.user not in room.users.all():
+    try:
+        membership = GroupMember.objects.get(
+            room=room,
+            user=request.user
+        )
+    except GroupMember.DoesNotExist:
         return HttpResponseForbidden("Not allowed")
 
     messages = (
         Message.objects
             .filter(room=room)
             .exclude(deleted_for=request.user)
+            .select_related("sender", "reply_to__sender")
             .order_by("timestamp")
+    )
+
+    existing_member_ids = GroupMember.objects.filter(
+        room=room
+    ).values_list("user_id", flat=True)
+
+    available_contacts = request.user.contacts.exclude(
+        contact__id__in=existing_member_ids
     )
 
     return render(request, "chat/group_chat.html", {
         "room": room,
-        "messages": messages
+        "messages": messages,
+        "user_role": membership.role,
+        "available_contacts": available_contacts
     })
 
 def unread_count(user ,other_user):

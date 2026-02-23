@@ -119,18 +119,20 @@
           class="text-xs text-gray-600 flex justify-end items-center gap-2 mt-1"
         >
           {{ msg.timestamp|time:"H:i" }}
-
+          
           <span class="tick" id="tick-{{ msg.id }}">
-            {% if msg.sender.id == request.user.id %} {% if msg.is_read %}
+            {% if msg.sender.id == request.user.id and not msg.is_deleted %} {% if msg.is_read %}
             <span class="blue-tick">✔✔</span>
             {% elif msg.is_delivered %} ✔✔ {% else %} ✔ {% endif %} {% endif %}
           </span>
+          {% if msg.sender.id == request.user.id and not msg.is_deleted %}
            <button class="reply-btn text-gray-500 text-xs"
             data-id="{{ msg.id }}"
             data-text="{{ msg.content }}"
             data-user="{{ msg.sender.username }}">
                Reply
            </button>
+           {% endif %}
 
           {% if msg.sender.id == request.user.id and not msg.is_deleted %}
           <button class="edit-btn text-blue-500 text-xs"

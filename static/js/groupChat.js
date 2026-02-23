@@ -1,5 +1,5 @@
 window.APP = window.APP || {
-    chatSocket: null,
+    groupSocket: null,
     replyingTo: null
 };
 
@@ -13,11 +13,11 @@ function connectGroupSocket(){
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
-    APP.chatSocket = new WebSocket(
+    APP.groupSocket = new WebSocket(
         protocol + window.location.host + "/ws/group/" + roomId + "/"
     );
 
-    APP.chatSocket.onopen = function(){
+    APP.groupSocket.onopen = function(){
 
         console.log("✅ Group socket connected");
 
@@ -38,7 +38,7 @@ function connectGroupSocket(){
         }
     };
 
-    APP.chatSocket.onmessage = function(e){
+    APP.groupSocket.onmessage = function(e){
 
         const data = JSON.parse(e.data);
 
@@ -90,6 +90,11 @@ function connectGroupSocket(){
             `;
             return;
         }
+        
+        if(data.type === "member_added"){
+            location.reload();   // simple refresh for now
+            return;
+        }
 
         // ONLY HANDLE GROUP MESSAGE
         if(data.type !== "group_message") return;
@@ -107,8 +112,14 @@ function connectGroupSocket(){
                      }">
 
                     ${!isMe ? `
-                        <div class="text-xs font-semibold text-green-700">
+                        <div class="text-xs font-semibold text-green-700 flex items-center gap-2">
                             ${data.username}
+                    
+                            ${data.role === "creator" ? 
+                                "<span class='text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded'>Creator</span>" 
+                            : data.role === "admin" ? 
+                                "<span class='text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded'>Admin</span>" 
+                            : ""}
                         </div>
                     ` : ""}
 
@@ -138,12 +149,12 @@ function connectGroupSocket(){
                     </button>
 
                     ${isMe ? `
-                    <button onclick="editMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
+                    <button onclick="groupEditMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
                             class="text-blue-500 text-xs ml-2">
                       Edit
                     </button>
             
-                    <button onclick="deleteMessage(${data.message_id})"
+                    <button onclick="groupDeleteMessage(${data.message_id})"
                             class="text-red-500 text-xs ml-2">
                       Delete
                     </button>
@@ -167,8 +178,8 @@ window.sendGroupMessage = function(){
     const message = input.value.trim();
     if(!message) return;
 
-    if(APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN){
-        APP.chatSocket.send(JSON.stringify({
+    if(APP.groupSocket && APP.groupSocket.readyState === WebSocket.OPEN){
+        APP.groupSocket.send(JSON.stringify({
             message: message,
             reply_to: APP.replyingTo
         }));
@@ -177,7 +188,7 @@ window.sendGroupMessage = function(){
     input.value = "";
     clearReply();
 };
-window.deleteMessage = function(messageId){
+window.groupDeleteMessage = function(messageId){
 
   let modal = document.getElementById("delete-modal");
   if(modal) modal.remove();
@@ -226,8 +237,8 @@ window.deleteMessage = function(messageId){
 };
 
 function sendDelete(id, mode){
-  if(APP.chatSocket && APP.chatSocket.readyState === WebSocket.OPEN){
-    APP.chatSocket.send(JSON.stringify({
+  if(APP.groupSocket && APP.groupSocket.readyState === WebSocket.OPEN){
+    APP.groupSocket.send(JSON.stringify({
       type: "delete",
       mode: mode,
       message_id: id
@@ -236,15 +247,16 @@ function sendDelete(id, mode){
 }
 
 
- window.editMessage =function(id, oldText){
+ window.groupEditMessage =function(id, oldText){
     const newText = prompt("Edit message", oldText);
     if(!newText) return;
 
-    APP.chatSocket.send(JSON.stringify({
+    APP.groupSocket.send(JSON.stringify({
         action: "edit",
         message_id: id,
         message: newText
     }));
+ };
 
 window.clearReply = function(){
     APP.replyingTo = null;
@@ -269,6 +281,45 @@ window.scrollToMessage = function(id){
     },1500);
 };
 
+window.openGroupInfo = function(){
+    const modal = document.getElementById("groupInfoModal");
+    if(!modal) return;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+window.closeGroupInfo = function(){
+    const modal = document.getElementById("groupInfoModal");
+    if(!modal) return;
+
+    modal.classList.remove("flex");
+    modal.classList.add("hidden");
+}
+
+window.removeMember = function(userId){
+    if(!confirm("Remove this member?")) return;
+    console.log("Removing user:", userId);
+
+    APP.groupSocket.send(JSON.stringify({
+        action: "remove_member",
+        user_id: userId
+    }));
+}
+
+window.showAddMember = function(){
+    document.getElementById("addMemberSection")
+        .classList.toggle("hidden");
+}
+
+window.addMember = function(userId){
+
+    APP.groupSocket.send(JSON.stringify({
+        action: "add_member",
+        user_id: userId
+    }));
+}
+
 document.addEventListener("click", function (e) {
   const replyBtn = e.target.closest(".reply-btn");
   if (!replyBtn) return;
@@ -286,7 +337,7 @@ document.addEventListener("click", function (e) {
 
   document.getElementById("reply-preview").classList.remove("hidden");
 });
-}
+
 
 
  
