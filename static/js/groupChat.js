@@ -87,6 +87,7 @@ function connectGroupSocket(){
     const roomId = data.dataset.roomId;
     const currentUserId = data.dataset.userId;
     APP.activeRoomId = roomId;
+    APP.groupRoomId = roomId;
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
@@ -189,6 +190,7 @@ function connectGroupSocket(){
         const messageHTML = `
             <div class="flex ${isMe ? "justify-end" : "justify-start"}">
                 <div id="msg-${data.message_id}" 
+                     data-audio="${data.audio_url ? "true" : "false"}"
                      class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm ${
                         isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"
                      }">
@@ -220,7 +222,11 @@ function connectGroupSocket(){
                     ` : ""}
 
                     <div class="msg-text text-[15px] leading-6">
-                        ${data.message}
+                        ${data.audio_url ? `
+                          <audio controls class="w-56">
+                            <source src="${data.audio_url}">
+                          </audio>
+                        ` : data.message}
                     </div>
 
                     <div class="text-[11px] text-slate-500 mt-2">now</div>
@@ -233,10 +239,12 @@ function connectGroupSocket(){
                     </button>
 
                     ${isMe ? `
+                    ${data.audio_url ? "" : `
                     <button onclick="groupEditMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
                             class="text-blue-200 text-[11px] ml-2">
                       Edit
                     </button>
+                    `}
             
                     <button onclick="groupDeleteMessage(${data.message_id})"
                             class="text-red-200 text-[11px] ml-2">
@@ -255,6 +263,71 @@ function connectGroupSocket(){
             window.bumpRoom(APP.activeRoomId);
         }
     };
+}
+
+let groupRecorder = null;
+let groupChunks = [];
+let isGroupRecording = false;
+
+function getCSRFToken() {
+    return document.cookie
+        .split("; ")
+        .find(row => row.startsWith("csrftoken"))
+        ?.split("=")[1];
+}
+
+window.toggleGroupRecording = async function () {
+    const btn = document.getElementById("record-btn");
+    const indicator = document.getElementById("record-indicator");
+    if (!btn) return;
+
+    if (!isGroupRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            groupRecorder = new MediaRecorder(stream);
+            groupChunks = [];
+
+            groupRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) groupChunks.push(e.data);
+            };
+
+            groupRecorder.onstop = () => {
+                const blob = new Blob(groupChunks, { type: groupRecorder.mimeType || "audio/webm" });
+                stream.getTracks().forEach((t) => t.stop());
+                sendGroupAudio(blob);
+            };
+
+            groupRecorder.start();
+            isGroupRecording = true;
+            btn.classList.add("bg-emerald-600", "text-white");
+            if (indicator) indicator.classList.remove("hidden");
+        } catch (err) {
+            console.error("Mic permission error:", err);
+        }
+    } else {
+        if (groupRecorder && groupRecorder.state !== "inactive") {
+            groupRecorder.stop();
+        }
+        isGroupRecording = false;
+        btn.classList.remove("bg-emerald-600", "text-white");
+        if (indicator) indicator.classList.add("hidden");
+    }
+};
+
+function sendGroupAudio(blob) {
+    if (!APP.groupRoomId) return;
+    const formData = new FormData();
+    formData.append("audio", blob, "audio.webm");
+
+    fetch(`/group/${APP.groupRoomId}/audio/`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRFToken(),
+        },
+        body: formData,
+    }).catch((err) => {
+        console.error("Audio upload error:", err);
+    });
 }
 
 

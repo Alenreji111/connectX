@@ -262,6 +262,7 @@ function openNewSocket(roomName) {
 
     wrapper.innerHTML = `
     <div id="msg-${data.message_id}"
+         data-audio="${data.audio_url ? "true" : "false"}"
          class="px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm
          ${isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"}">
 
@@ -282,7 +283,11 @@ function openNewSocket(roomName) {
 
         <!-- MESSAGE TEXT -->
         <div class="msg-text text-[15px] leading-6">
-            ${data.message}
+            ${data.audio_url ? `
+                <audio controls class="w-56">
+                  <source src="${data.audio_url}">
+                </audio>
+            ` : data.message}
         </div>
 
         <!-- TIME + TICK + BUTTONS -->
@@ -312,12 +317,14 @@ function openNewSocket(roomName) {
             ${
               isMe
                 ? `
+                    ${data.audio_url ? "" : `
                     <button 
                         class="edit-btn text-blue-200 ml-1 text-[11px]"
                         data-id="${data.message_id}"
                         data-text="${data.message}">
                         Edit
                     </button>
+                    `}
 
                     <button onclick="deleteMessage(${data.message_id})"
                         class="text-red-200 ml-1 text-[11px]">
@@ -345,6 +352,64 @@ console.log("PRIVATE MESSAGE EVENT:", data);
     console.log("Socket closed");
     APP.activeRoom = null;
   };
+}
+
+let audioRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+window.toggleRecording = async function () {
+  const btn = document.getElementById("record-btn");
+  const indicator = document.getElementById("record-indicator");
+  if (!btn) return;
+
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      audioRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      audioRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: audioRecorder.mimeType || "audio/webm" });
+        stream.getTracks().forEach((t) => t.stop());
+        sendPrivateAudio(blob);
+      };
+
+      audioRecorder.start();
+      isRecording = true;
+      btn.classList.add("bg-emerald-600", "text-white");
+      if (indicator) indicator.classList.remove("hidden");
+    } catch (err) {
+      console.error("Mic permission error:", err);
+    }
+  } else {
+    if (audioRecorder && audioRecorder.state !== "inactive") {
+      audioRecorder.stop();
+    }
+    isRecording = false;
+    btn.classList.remove("bg-emerald-600", "text-white");
+    if (indicator) indicator.classList.add("hidden");
+  }
+};
+
+function sendPrivateAudio(blob) {
+  if (!APP.otherUserId) return;
+  const formData = new FormData();
+  formData.append("audio", blob, "audio.webm");
+
+  fetch(`/private-audio/${APP.otherUserId}/`, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": getCSRFToken(),
+    },
+    body: formData,
+  }).catch((err) => {
+    console.error("Audio upload error:", err);
+  });
 }
 
 function sendPrivateMessage() {
@@ -562,6 +627,9 @@ document.addEventListener("click", function (e) {
   const bubble = document.getElementById("msg-" + id);
   if (!bubble) {
     console.log("Bubble not found");
+    return;
+  }
+  if (bubble.dataset.audio === "true" || bubble.querySelector("audio")) {
     return;
   }
 

@@ -518,6 +518,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "username": event["username"],
             "message_id": event["message_id"],
             "reply_to": event.get("reply_to"),
+            "audio_url": event.get("audio_url"),
         }))
 
     # ⭐ MARK AS DELIVERED INSTANTLY

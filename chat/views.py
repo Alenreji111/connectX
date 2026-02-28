@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect , get_object_or_404
+from django.http import JsonResponse, HttpResponseForbidden, Http404, FileResponse, HttpResponseBadRequest
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -6,6 +7,11 @@ from .models import Room, Message , UserStatus ,Contact , GroupMember
 from django.contrib.auth.models import User
 from .utils import get_private_room
 from django.db.models import Prefetch, Q, OuterRef, Subquery
+from django.utils import timezone
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+import mimetypes
+from django.urls import reverse
 from accounts.models import Block
 
 
@@ -336,3 +342,142 @@ def load_private_chat(request, username):
         "messages": messages,
         "other_user": other_user
     })
+
+@login_required
+def message_audio(request, message_id):
+    msg = get_object_or_404(Message, id=message_id)
+    if not msg.audio:
+        raise Http404("Audio not found")
+
+    is_member = msg.room.users.filter(id=request.user.id).exists()
+    if not is_member:
+        return HttpResponseForbidden("Not allowed")
+
+    content_type, _ = mimetypes.guess_type(msg.audio.name)
+    return FileResponse(msg.audio.open("rb"), content_type=content_type or "application/octet-stream")
+
+@login_required
+def upload_private_audio(request, user_id):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid request")
+
+    audio_file = request.FILES.get("audio")
+    if not audio_file:
+        return HttpResponseBadRequest("No audio file")
+
+    other_user = get_object_or_404(User, id=user_id)
+    room = get_private_room(request.user, other_user)
+    if room is None:
+        return HttpResponseForbidden("Invalid private chat")
+
+    is_blocked = Block.objects.filter(blocker=other_user, blocked=request.user).exists()
+    if is_blocked:
+        return HttpResponseForbidden("Blocked")
+
+    msg = Message.objects.create(
+        sender=request.user,
+        receiver=other_user,
+        room=room,
+        content="🎤 Audio",
+        audio=audio_file,
+        is_read=False,
+        is_delivered=False
+    )
+
+    Room.objects.filter(id=room.id).update(last_activity=timezone.now())
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"room_{room.id}",
+        {
+            "type": "private_message",
+            "message": msg.content,
+            "audio_url": request.build_absolute_uri(
+                reverse("message_audio", args=[msg.id])
+            ),
+            "username": request.user.username,
+            "message_id": msg.id,
+            "reply_to": None,
+        }
+    )
+
+    for user in room.users.all():
+        unread_count = Message.objects.filter(
+            room=room,
+            is_read=False
+        ).exclude(sender=user).count()
+
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "unread_notify",
+                "room_id": room.id,
+                "count": unread_count
+            }
+        )
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "last_message",
+                "room_id": room.id,
+                "preview": msg.content
+            }
+        )
+
+    return JsonResponse({"status": "ok", "message_id": msg.id})
+
+@login_required
+def upload_group_audio(request, room_id):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid request")
+
+    audio_file = request.FILES.get("audio")
+    if not audio_file:
+        return HttpResponseBadRequest("No audio file")
+
+    room = get_object_or_404(Room, id=room_id, is_group=True)
+    is_member = room.users.filter(id=request.user.id).exists()
+    if not is_member:
+        return HttpResponseForbidden("Not allowed")
+
+    msg = Message.objects.create(
+        sender=request.user,
+        room=room,
+        content="🎤 Audio",
+        audio=audio_file
+    )
+
+    Room.objects.filter(id=room.id).update(last_activity=timezone.now())
+
+    membership = GroupMember.objects.filter(room=room, user=request.user).first()
+    role = membership.role if membership else "member"
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"group_{room.id}",
+        {
+            "type": "group_message",
+            "message": msg.content,
+            "audio_url": request.build_absolute_uri(
+                reverse("message_audio", args=[msg.id])
+            ),
+            "username": request.user.username,
+            "sender_display": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            "role": role,
+            "sender_id": request.user.id,
+            "message_id": msg.id,
+            "reply_to": None,
+        }
+    )
+
+    for user in room.users.all():
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "last_message",
+                "room_id": room.id,
+                "preview": msg.content
+            }
+        )
+
+    return JsonResponse({"status": "ok", "message_id": msg.id})

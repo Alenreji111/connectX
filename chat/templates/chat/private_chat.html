@@ -101,6 +101,7 @@
     >
       <div id="msg-{{ msg.id }}"
          data-deleted="{% if msg.is_deleted %}true{% else %}false{% endif %}"
+         data-audio="{% if msg.audio %}true{% else %}false{% endif %}"
         class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm {% if msg.sender.id == request.user.id %}bg-emerald-600 text-white{% else %}bg-white border border-slate-200/70 text-slate-900{% endif %}">
           {% if msg.reply_to %}
            <div class="reply-preview bg-emerald-50 text-xs p-2 rounded-lg mb-1 border-l-4 border-emerald-500 text-slate-700"
@@ -113,18 +114,24 @@
                  {% endif %}
                </strong>
                <div class="truncate">
+                 {% if msg.reply_to.audio %}
+                   🎤 Audio message
+                 {% else %}
                    {{ msg.reply_to.content }}
+                 {% endif %}
                </div>
            </div>
          {% endif %}
         <div class="msg-text text-[15px] leading-6">
         {% if msg.is_deleted %}
           <i class="text-gray-400">This message was deleted</i>
-         {% else %}
+        {% elif msg.audio %}
+          <audio controls class="w-56">
+            <source src="{% url 'message_audio' msg.id %}">
+          </audio>
+        {% else %}
         {{ msg.content }}
         {% endif %}
-        
-        
         </div>
         <div class="reaction-menu hidden absolute bg-white shadow-lg rounded-full px-2 py-1 flex gap-2 text-lg border border-slate-200/70"
           id="menu-{{ msg.id }}">
@@ -169,7 +176,7 @@
            </button>
            {% endif %}
 
-          {% if msg.sender.id == request.user.id and not msg.is_deleted %}
+          {% if msg.sender.id == request.user.id and not msg.is_deleted and not msg.audio %}
           <button class="edit-btn text-blue-200 text-[11px]"
                   data-id="{{ msg.id }}">
             Edit
@@ -218,6 +225,21 @@
         class="flex-1 bg-transparent outline-none text-sm placeholder-slate-400"
         placeholder="Type a message..."
       />
+
+      <span id="record-indicator"
+        class="hidden text-xs text-red-500 font-semibold flex items-center gap-1">
+        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+        Recording
+      </span>
+
+      <button
+        id="record-btn"
+        onclick="toggleRecording()"
+        class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center"
+        title="Record audio"
+      >
+        🎤
+      </button>
 
       <button
         onclick="sendPrivateMessage()"

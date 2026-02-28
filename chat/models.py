@@ -50,6 +50,7 @@ class Message(models.Model):
     )
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     content = models.TextField()
+    audio = models.FileField(upload_to="chat_audio/", null=True, blank=True)
     reply_to = models.ForeignKey(
         "self",
         null=True,
