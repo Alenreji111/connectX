@@ -39,26 +39,51 @@
 
 <div class="flex flex-col h-full">
   <!-- HEADER -->
-  <div class="bg-white shadow p-4 border-b">
-    <h2 class="font-semibold text-lg">
-      {{ other_user.username }}
-      <button id="block-btn"
-        class="ml-3 text-sm text-red-500 hover:underline">
-        Block
-      </button>
-
-      <span id="status-text" class="text-sm text-gray-500 ml-2">
-        {% if status.is_online %}
-        <span class="text-green-600">● Online</span>
-        {% else %} last seen {{ status.last_seen|timesince }} ago {% endif %}
-      </span>
-    </h2>
+  <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        {% if other_user.profile.avatar.name != "avatars/default.png" %}
+          <img
+            src="{{ other_user.profile.avatar.url }}"
+            class="w-10 h-10 rounded-full object-cover chat-avatar cursor-pointer"
+            data-user-id="{{ other_user.id }}"
+          />
+        {% else %}
+          <div
+            class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-semibold chat-avatar cursor-pointer"
+            data-user-id="{{ other_user.id }}"
+          >
+            {{ other_user.username|first|upper }}
+          </div>
+        {% endif %}
+        <h2 class="font-semibold text-lg text-slate-900">
+          <span class="chat-username cursor-pointer" data-user-id="{{ other_user.id }}">
+            {% if other_user.first_name or other_user.last_name %}
+              {{ other_user.first_name }} {{ other_user.last_name }}
+            {% else %}
+              {{ other_user.username }}
+            {% endif %}
+          </span>
+        </h2>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <button id="block-btn"
+          class="text-red-500 hover:text-red-600 font-medium">
+          Block
+        </button>
+        <span id="status-text" class="text-xs text-slate-500">
+          {% if status.is_online %}
+          <span class="text-emerald-600 font-semibold">● Online</span>
+          {% else %} last seen {{ status.last_seen|timesince }} ago {% endif %}
+        </span>
+      </div>
+    </div>
   </div>
 
   <!-- MESSAGES -->
   <div
     id="messages"
-    class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2">
+    class="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3">
     {% for msg in messages %}
 
     <div
@@ -66,9 +91,9 @@
     >
       <div id="msg-{{ msg.id }}"
          data-deleted="{% if msg.is_deleted %}true{% else %}false{% endif %}"
-        class="relative px-4 py-2 rounded-xl max-w-xs {% if msg.sender.id == request.user.id %}bg-green-300{% else %}bg-white{% endif %}">
+        class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm {% if msg.sender.id == request.user.id %}bg-emerald-600 text-white{% else %}bg-white border border-slate-200/70 text-slate-900{% endif %}">
           {% if msg.reply_to %}
-           <div class="reply-preview bg-gray-200 text-xs p-2 rounded mb-1 border-l-4 border-green-500"
+           <div class="reply-preview bg-emerald-50 text-xs p-2 rounded-lg mb-1 border-l-4 border-emerald-500 text-slate-700"
              data-reply-id="{{ msg.reply_to.id }}">
                <strong>
                  {% if msg.reply_to.sender.username == request.user.username %}
@@ -82,7 +107,7 @@
                </div>
            </div>
          {% endif %}
-      <div class="msg-text" >
+        <div class="msg-text text-[15px] leading-6">
         {% if msg.is_deleted %}
           <i class="text-gray-400">This message was deleted</i>
          {% else %}
@@ -91,7 +116,7 @@
         
         
         </div>
-        <div class="reaction-menu hidden absolute bg-white shadow rounded-full px-2 py-1 flex gap-2 text-lg"
+        <div class="reaction-menu hidden absolute bg-white shadow-lg rounded-full px-2 py-1 flex gap-2 text-lg border border-slate-200/70"
           id="menu-{{ msg.id }}">
             <span onclick="sendReaction({{ msg.id }}, '👍')" >👍</span>
             <span onclick="sendReaction({{ msg.id }}, '❤️')"  >❤️</span>
@@ -99,13 +124,13 @@
             <span onclick="sendReaction({{ msg.id }}, '😢')"  >😢</span>
             <span onclick="sendReaction({{ msg.id }}, '🔥')"  >🔥</span>
         </div>
-        <div class="reaction-box flex gap-1 mt-1 text-sm"
+        <div class="reaction-box flex flex-wrap gap-1 mt-2 text-xs"
             id="reaction-{{ msg.id }}">
 
              {% regroup msg.reactions.all by emoji as emoji_list %}
          
              {% for group in emoji_list %}
-                 <span class="bg-gray-200 px-2 py-1 rounded-full"
+                 <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200/70"
                  onclick="showReactionPopup('{{ group.grouper }}', [{% for r in group.list %}'{{ r.user.username }}'{% if not forloop.last %},{% endif %}{% endfor %}])">
                      {{ group.grouper }} {{ group.list|length }}
                  </span>
@@ -116,7 +141,7 @@
       
 
         <div
-          class="text-xs text-gray-600 flex justify-end items-center gap-2 mt-1"
+          class="text-[11px] text-slate-500 flex justify-end items-center gap-2 mt-2"
         >
           {{ msg.timestamp|time:"H:i" }}
           
@@ -126,7 +151,7 @@
             {% elif msg.is_delivered %} ✔✔ {% else %} ✔ {% endif %} {% endif %}
           </span>
           {% if not msg.is_deleted %}
-           <button class="reply-btn text-gray-500 text-xs"
+           <button class="reply-btn text-[11px] {% if msg.sender.id == request.user.id %}text-emerald-100/90{% else %}text-slate-500{% endif %}"
             data-id="{{ msg.id }}"
             data-text="{{ msg.content|escapejs }}"
             data-user="{% if msg.sender.id == request.user.id %}You{% else %}{{ msg.sender.username }}{% endif %}">
@@ -135,13 +160,13 @@
            {% endif %}
 
           {% if msg.sender.id == request.user.id and not msg.is_deleted %}
-          <button class="edit-btn text-blue-500 text-xs"
+          <button class="edit-btn text-blue-200 text-[11px]"
                   data-id="{{ msg.id }}">
             Edit
           </button>
           <button
             onclick="deleteMessage({{ msg.id }})"
-            class="text-red-500 hover:text-red-700 text-xs font-semibold"
+            class="text-red-200 hover:text-red-100 text-[11px] font-semibold"
           >
             Delete
           </button>
@@ -154,13 +179,13 @@
   </div>
 
   <!-- TYPING -->
-  <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div>
+  <div id="typing-indicator" class="text-sm text-slate-500 h-5 ml-4"></div>
   <div id="reply-preview"
-     class="hidden bg-gray-100 px-3 py-2 border-l-4 border-green-500 text-sm flex justify-between items-start">
+     class="hidden bg-white/90 px-3 py-2 border-l-4 border-emerald-500 text-sm flex justify-between items-start backdrop-blur">
 
       <div>
-          <div id="reply-user" class="font-semibold text-gray-700"></div>
-          <div id="reply-text" class="text-gray-600 truncate max-w-xs"></div>
+          <div id="reply-user" class="font-semibold text-slate-700"></div>
+          <div id="reply-text" class="text-slate-500 truncate max-w-xs"></div>
       </div>
 
       <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
@@ -176,19 +201,20 @@
     window.IS_BLOCKED = {{ is_blocked|yesno:"true,false" }};
    </script>
   <!-- INPUT -->
-  <div class="flex gap-2 p-3 bg-white border-t">
-    <input
-      id="messageInput"
-      class="flex-1 border rounded-lg px-3 py-2 outline-none"
-      placeholder="Type a message..."
-    />
+  <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60">
+    <div class="flex items-center gap-2 bg-white rounded-2xl shadow-sm border border-slate-200/70 px-3 py-2">
+      <input
+        id="messageInput"
+        class="flex-1 bg-transparent outline-none text-sm placeholder-slate-400"
+        placeholder="Type a message..."
+      />
 
-    <button
-      onclick="sendPrivateMessage()"
-      class="bg-green-500 text-white px-4 py-2 rounded-lg"
-    >
-      Send
-    </button>
+      <button
+        onclick="sendPrivateMessage()"
+        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"
+      >
+        Send
+      </button>
+    </div>
   </div>
 </div>
-

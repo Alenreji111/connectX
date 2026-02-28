@@ -3,6 +3,82 @@ window.APP = window.APP || {
     replyingTo: null
 };
 
+function openCxModal(content) {
+    const existing = document.getElementById("cx-modal");
+    if (existing) existing.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "cx-modal";
+    modal.className =
+        "fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50";
+    modal.innerHTML = `
+        <div class="bg-white/95 w-[92vw] max-w-sm rounded-2xl shadow-2xl border border-white/60 p-5">
+            ${content}
+        </div>
+    `;
+
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) modal.remove();
+    });
+
+    document.body.appendChild(modal);
+    return modal;
+}
+
+function openCxConfirm({ title, message, confirmText, onConfirm }) {
+    const modal = openCxModal(`
+        <h3 class="text-lg font-semibold text-slate-900">${title}</h3>
+        <p class="mt-2 text-sm text-slate-600">${message}</p>
+        <div class="mt-5 flex gap-2 justify-end">
+            <button id="cx-cancel" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+                Cancel
+            </button>
+            <button id="cx-confirm" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+                ${confirmText}
+            </button>
+        </div>
+    `);
+
+    modal.querySelector("#cx-cancel").onclick = () => modal.remove();
+    modal.querySelector("#cx-confirm").onclick = () => {
+        modal.remove();
+        if (onConfirm) onConfirm();
+    };
+}
+
+function openCxPrompt({ title, message, value, confirmText, onConfirm }) {
+    const modal = openCxModal(`
+        <h3 class="text-lg font-semibold text-slate-900">${title}</h3>
+        <p class="mt-2 text-sm text-slate-600">${message}</p>
+        <input id="cx-input" class="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400" />
+        <div class="mt-5 flex gap-2 justify-end">
+            <button id="cx-cancel" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+                Cancel
+            </button>
+            <button id="cx-confirm" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+                ${confirmText}
+            </button>
+        </div>
+    `);
+
+    const input = modal.querySelector("#cx-input");
+    input.value = value || "";
+    input.focus();
+
+    const submit = () => {
+        const text = input.value.trim();
+        if (!text) return;
+        modal.remove();
+        if (onConfirm) onConfirm(text);
+    };
+
+    modal.querySelector("#cx-cancel").onclick = () => modal.remove();
+    modal.querySelector("#cx-confirm").onclick = submit;
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submit();
+    });
+}
+
 function connectGroupSocket(){
 
     const data = document.getElementById("group-chat-data");
@@ -112,24 +188,24 @@ function connectGroupSocket(){
         const messageHTML = `
             <div class="flex ${isMe ? "justify-end" : "justify-start"}">
                 <div id="msg-${data.message_id}" 
-                     class="relative px-4 py-2 rounded-xl max-w-xs ${
-                        isMe ? "bg-green-300" : "bg-white"
+                     class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm ${
+                        isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"
                      }">
 
                     ${!isMe ? `
-                        <div class="text-xs font-semibold text-green-700 flex items-center gap-2">
+                        <div class="text-xs font-semibold text-emerald-700 flex items-center gap-2">
                             ${data.username}
                     
                             ${data.role === "creator" ? 
-                                "<span class='text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded'>Creator</span>" 
+                                "<span class='text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full'>Creator</span>" 
                             : data.role === "admin" ? 
-                                "<span class='text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded'>Admin</span>" 
+                                "<span class='text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full'>Admin</span>" 
                             : ""}
                         </div>
                     ` : ""}
 
                     ${data.reply_to ? `
-                        <div class="reply-preview bg-gray-200 text-xs p-2 rounded mb-1 border-l-4 border-green-500 cursor-pointer"
+                        <div class="reply-preview bg-emerald-50 text-xs p-2 rounded-lg mb-1 border-l-4 border-emerald-500 cursor-pointer text-slate-700"
                              data-reply-id="${data.reply_to.id}">
                             <strong>
                                 ${data.reply_to.username === APP.username ? "You" : data.reply_to.username}
@@ -140,27 +216,27 @@ function connectGroupSocket(){
                         </div>
                     ` : ""}
 
-                    <div class="msg-text">
+                    <div class="msg-text text-[15px] leading-6">
                         ${data.message}
                     </div>
 
-                    <div class="text-xs text-gray-600 mt-1">now</div>
+                    <div class="text-[11px] text-slate-500 mt-2">now</div>
 
-                    <button class="reply-btn text-gray-500 text-xs mt-1"
+                    <button class="reply-btn text-[11px] mt-1 ${isMe ? "text-emerald-100/90" : "text-slate-500"}"
                         data-id="${data.message_id}"
-                        data-text="${data.message}"
+                        data-text="${data.message.replace(/\"/g, "&quot;")}"
                         data-user="${data.username}">
                         Reply
                     </button>
 
                     ${isMe ? `
                     <button onclick="groupEditMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
-                            class="text-blue-500 text-xs ml-2">
+                            class="text-blue-200 text-[11px] ml-2">
                       Edit
                     </button>
             
                     <button onclick="groupDeleteMessage(${data.message_id})"
-                            class="text-red-500 text-xs ml-2">
+                            class="text-red-200 text-[11px] ml-2">
                       Delete
                     </button>
                       ` : ""}
@@ -201,24 +277,24 @@ window.groupDeleteMessage = function(messageId){
   modal = document.createElement("div");
   modal.id = "delete-modal";
   modal.className =
-    "fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50";
+    "fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50";
 
   modal.innerHTML = `
-    <div class="bg-white p-5 rounded-xl w-72 text-center space-y-4">
+    <div class="bg-white/95 p-5 rounded-2xl w-72 text-center space-y-4 border border-white/60 shadow-2xl">
       <h3 class="font-semibold text-lg">Delete message?</h3>
 
       <button id="delete-me"
-        class="w-full bg-gray-200 py-2 rounded-lg">
+        class="w-full bg-slate-100 hover:bg-slate-200 py-2 rounded-lg">
         Delete for me
       </button>
 
       <button id="delete-everyone"
-        class="w-full bg-red-500 text-white py-2 rounded-lg">
+        class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg">
         Delete for everyone
       </button>
 
       <button id="cancel-delete"
-        class="w-full text-gray-500 text-sm">
+        class="w-full text-slate-500 text-sm">
         Cancel
       </button>
     </div>
@@ -252,15 +328,20 @@ function sendDelete(id, mode){
 }
 
 
- window.groupEditMessage =function(id, oldText){
-    const newText = prompt("Edit message", oldText);
-    if(!newText) return;
-
-    APP.groupSocket.send(JSON.stringify({
-        action: "edit",
-        message_id: id,
-        message: newText
-    }));
+window.groupEditMessage =function(id, oldText){
+    openCxPrompt({
+        title: "Edit message",
+        message: "Update your message below.",
+        value: oldText,
+        confirmText: "Save",
+        onConfirm: (newText) => {
+            APP.groupSocket.send(JSON.stringify({
+                action: "edit",
+                message_id: id,
+                message: newText
+            }));
+        }
+    });
  };
 
 window.clearReply = function(){
@@ -312,13 +393,17 @@ window.changeRole = function(userId, newRole){
 }
 
 window.removeMember = function(userId){
-    if(!confirm("Remove this member?")) return;
-    console.log("Removing user:", userId);
-
-    APP.groupSocket.send(JSON.stringify({
-        action: "remove_member",
-        user_id: userId
-    }));
+    openCxConfirm({
+        title: "Remove member?",
+        message: "They will be removed from this group.",
+        confirmText: "Remove",
+        onConfirm: () => {
+            APP.groupSocket.send(JSON.stringify({
+                action: "remove_member",
+                user_id: userId
+            }));
+        }
+    });
 }
 
 window.showAddMember = function(){

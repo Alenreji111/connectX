@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView
 from .models import Room, Message , UserStatus ,Contact , GroupMember
 from django.contrib.auth.models import User
 from .utils import get_private_room
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from accounts.models import Block
 
 
@@ -117,7 +117,10 @@ def user_list(request):
             "user": c.contact,
             "unread": unread
         })
-    return render(request, "chat/user_list.html", {"user_data":user_data})
+    template = "chat/user_list.html"
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        template = "chat/partials/contacts_list.html"
+    return render(request, template, {"user_data": user_data})
 
 @login_required
 def private_chat(request, user_id):
@@ -242,9 +245,23 @@ def my_groups(request):
 @login_required
 def search_users(request):
     q = request.GET.get("q", "")
-    users = User.objects.filter(
-        username__icontains=q
-    ).exclude(id=request.user.id)
+    base_users = User.objects.exclude(id=request.user.id).exclude(
+        username__iexact="admin"
+    ).exclude(is_superuser=True)
+
+    if q.strip():
+        term = q.strip()
+        users = base_users.filter(
+            Q(username__icontains=term) |
+            Q(first_name__icontains=term) |
+            Q(last_name__icontains=term) |
+            Q(email__icontains=term)
+        )
+    else:
+        contact_ids = Contact.objects.filter(
+            owner=request.user
+        ).values_list("contact_id", flat=True)
+        users = base_users.filter(id__in=contact_ids)
 
     user_data = []
 
@@ -258,9 +275,12 @@ def search_users(request):
             "user": user,
             "is_added": is_added
         })
-
-    return render(request, "chat/search.html", {
-        "user_data": user_data
+    template = "chat/search.html"
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        template = "chat/partials/search_results.html"
+    return render(request, template, {
+        "user_data": user_data,
+        "query": q
     })
 
 @login_required

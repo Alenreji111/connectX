@@ -1,0 +1,63 @@
+<div class="h-full overflow-y-auto p-6">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-900">Search Results</h1>
+      {% if query %}
+        <p class="text-sm text-slate-500">For "{{ query }}"</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white/80 border border-white/60 rounded-2xl shadow-sm overflow-hidden">
+    {% for item in user_data %}
+      <div class="flex items-center justify-between p-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          {% if item.user.profile.avatar.name != "avatars/default.png" %}
+            <img
+              src="{{ item.user.profile.avatar.url }}"
+              class="w-12 h-12 rounded-full object-cover"
+            />
+          {% else %}
+            <div class="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center font-semibold">
+              {{ item.user.username|first|upper }}
+            </div>
+          {% endif %}
+
+          <div class="leading-tight">
+            <div class="font-semibold text-slate-900">
+              {% if item.user.first_name or item.user.last_name %}
+                {{ item.user.first_name }} {{ item.user.last_name }}
+              {% else %}
+                {{ item.user.username }}
+              {% endif %}
+            </div>
+            {% if item.user.email %}
+              <div class="text-sm text-slate-500">{{ item.user.email }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if item.is_added %}
+          <form method="POST" action="{% url 'remove_contact' item.user.id %}">
+            {% csrf_token %}
+            <button
+              type="submit"
+              class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-sm"
+            >
+              Remove
+            </button>
+          </form>
+        {% else %}
+          <a
+            href="{% url 'add_contact' item.user.id %}"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm"
+          >
+            Add
+          </a>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="p-6 text-center text-slate-500">No users found.</div>
+    {% endfor %}
+  </div>
+</div>

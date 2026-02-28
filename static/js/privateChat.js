@@ -7,6 +7,82 @@ window.APP = window.APP || {
   typingTimeout: null,
   replyingTo: null 
 };
+
+function openCxModal(content) {
+  const existing = document.getElementById("cx-modal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "cx-modal";
+  modal.className =
+    "fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50";
+  modal.innerHTML = `
+    <div class="bg-white/95 w-[92vw] max-w-sm rounded-2xl shadow-2xl border border-white/60 p-5">
+      ${content}
+    </div>
+  `;
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openCxConfirm({ title, message, confirmText, onConfirm }) {
+  const modal = openCxModal(`
+    <h3 class="text-lg font-semibold text-slate-900">${title}</h3>
+    <p class="mt-2 text-sm text-slate-600">${message}</p>
+    <div class="mt-5 flex gap-2 justify-end">
+      <button id="cx-cancel" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+        Cancel
+      </button>
+      <button id="cx-confirm" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+        ${confirmText}
+      </button>
+    </div>
+  `);
+
+  modal.querySelector("#cx-cancel").onclick = () => modal.remove();
+  modal.querySelector("#cx-confirm").onclick = () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  };
+}
+
+function openCxPrompt({ title, message, value, confirmText, onConfirm }) {
+  const modal = openCxModal(`
+    <h3 class="text-lg font-semibold text-slate-900">${title}</h3>
+    <p class="mt-2 text-sm text-slate-600">${message}</p>
+    <input id="cx-input" class="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400" />
+    <div class="mt-5 flex gap-2 justify-end">
+      <button id="cx-cancel" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">
+        Cancel
+      </button>
+      <button id="cx-confirm" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+        ${confirmText}
+      </button>
+    </div>
+  `);
+
+  const input = modal.querySelector("#cx-input");
+  input.value = value || "";
+  input.focus();
+
+  const submit = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    modal.remove();
+    if (onConfirm) onConfirm(text);
+  };
+
+  modal.querySelector("#cx-cancel").onclick = () => modal.remove();
+  modal.querySelector("#cx-confirm").onclick = submit;
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") submit();
+  });
+}
 function connectSocket() {
   const data = document.getElementById("chat-data");
 
@@ -182,31 +258,31 @@ function openNewSocket(roomName) {
 
     wrapper.innerHTML = `
     <div id="msg-${data.message_id}"
-         class="px-4 py-2 rounded-xl max-w-xs
-         ${isMe ? "bg-green-300" : "bg-white"}">
+         class="px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm
+         ${isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"}">
 
            ${data.reply_to ? `
-            <div class="reply-preview bg-gray-100 border-l-4 border-green-500 
-                        px-2 py-1 mb-2 text-xs cursor-pointer"
+            <div class="reply-preview bg-emerald-50 border-l-4 border-emerald-500 
+                        px-2 py-1 mb-2 text-xs cursor-pointer text-slate-700"
                  data-reply-id="${data.reply_to.id}">
 
-                <div class="font-semibold text-gray-700">
+                <div class="font-semibold text-slate-700">
                     ${data.reply_to.username === APP.username ? "You" : data.reply_to.username}
                 </div>
 
-                <div class="text-gray-600 truncate">
+                <div class="text-slate-600 truncate">
                     ${data.reply_to.content}
                 </div>
             </div>
         ` : ""}
 
         <!-- MESSAGE TEXT -->
-        <div class="msg-text">
+        <div class="msg-text text-[15px] leading-6">
             ${data.message}
         </div>
 
         <!-- TIME + TICK + BUTTONS -->
-        <div class="text-xs text-gray-600 flex justify-end gap-1 mt-1">
+        <div class="text-[11px] text-slate-500 flex justify-end gap-1 mt-2">
 
             ${new Date().toLocaleTimeString([], {
               hour: "2-digit",
@@ -222,7 +298,7 @@ function openNewSocket(roomName) {
             }
 
             <button 
-                class="reply-btn text-gray-500 ml-1 text-xs"
+                class="reply-btn ml-1 text-[11px] ${isMe ? "text-emerald-100/90" : "text-slate-500"}"
                 data-id="${data.message_id}"
                 data-text="${data.message.replace(/\"/g, "&quot;")}"
                 data-user="${isMe ? "You" : data.username}">
@@ -233,14 +309,14 @@ function openNewSocket(roomName) {
               isMe
                 ? `
                     <button 
-                        class="edit-btn text-blue-500 ml-1 text-xs"
+                        class="edit-btn text-blue-200 ml-1 text-[11px]"
                         data-id="${data.message_id}"
                         data-text="${data.message}">
                         Edit
                     </button>
 
                     <button onclick="deleteMessage(${data.message_id})"
-                        class="text-red-500 ml-1 text-xs">
+                        class="text-red-200 ml-1 text-[11px]">
                         Delete
                     </button>
                   `
@@ -287,19 +363,23 @@ function sendPrivateMessage() {
 
 function deleteMessage(messageId) {
   if (!APP.privateSocket) return;
-
-  if (!confirm("Delete this message?")) return;
-
-  if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
-    APP.privateSocket.send(
-      JSON.stringify({
-        type: "delete",
-        message_id: messageId,
-      }),
-    );
-  } else {
-    console.log("Socket not connected");
-  }
+  openCxConfirm({
+    title: "Delete message?",
+    message: "This will delete it for everyone.",
+    confirmText: "Delete",
+    onConfirm: () => {
+      if (APP.privateSocket && APP.privateSocket.readyState === WebSocket.OPEN) {
+        APP.privateSocket.send(
+          JSON.stringify({
+            type: "delete",
+            message_id: messageId,
+          }),
+        );
+      } else {
+        console.log("Socket not connected");
+      }
+    }
+  });
 }
 
 function editMessage(id) {
@@ -312,19 +392,22 @@ function editMessage(id) {
   const oldText = bubble.querySelector(".msg-text").innerText;
   console.log("textDiv:", oldText);
 
-  const newText = prompt("Edit message", oldText);
-
-  if (!newText || !newText.trim()) return;
-
-  console.log("SENDING EDIT:", id, newText);
-
-  APP.privateSocket.send(
-    JSON.stringify({
-      type: "edit",
-      message_id: id,
-      message: newText.trim(),
-    }),
-  );
+  openCxPrompt({
+    title: "Edit message",
+    message: "Update your message below.",
+    value: oldText,
+    confirmText: "Save",
+    onConfirm: (newText) => {
+      console.log("SENDING EDIT:", id, newText);
+      APP.privateSocket.send(
+        JSON.stringify({
+          type: "edit",
+          message_id: id,
+          message: newText.trim(),
+        }),
+      );
+    }
+  });
 }
 
 function sendReaction(messageId, emoji) {
@@ -361,7 +444,7 @@ function showReactionPopup(emoji, users) {
           <span>Reactions</span>
         </div>
         <button onclick="document.getElementById('reaction-sheet').remove()" 
-                class="text-gray-500 text-sm">
+                class="text-slate-500 text-sm">
           Close
         </button>
       </div>
@@ -373,7 +456,7 @@ function showReactionPopup(emoji, users) {
               <img src="${user.avatar}" 
                 class="w-10 h-10 rounded-full object-cover" />
   
-              <span class="text-gray-800">
+              <span class="text-slate-800">
                 ${user.username === APP.username ? "You" : user.username}
               </span>
 
@@ -457,19 +540,22 @@ document.addEventListener("click", function (e) {
 
   console.log("OLD TEXT:", oldText);
 
-  const newText = prompt("Edit message", oldText);
-  if (newText === null) return;
-  if (!newText.trim()) return;
-
-  console.log("SENDING EDIT:", id, newText);
-
-  APP.privateSocket.send(
-    JSON.stringify({
-      type: "edit",
-      message_id: id,
-      message: newText.trim(),
-    }),
-  );
+  openCxPrompt({
+    title: "Edit message",
+    message: "Update your message below.",
+    value: oldText,
+    confirmText: "Save",
+    onConfirm: (newText) => {
+      console.log("SENDING EDIT:", id, newText);
+      APP.privateSocket.send(
+        JSON.stringify({
+          type: "edit",
+          message_id: id,
+          message: newText.trim(),
+        }),
+      );
+    }
+  });
 });
 
 let pressTimer;

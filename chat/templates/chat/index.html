@@ -2,22 +2,37 @@
 <!doctype html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ConnectX</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+    :root {
+      --cx-green: #16a34a;
+      --cx-green-dark: #15803d;
+      --cx-ink: #0f172a;
+    }
+    body { font-family: "Space Grotesk", sans-serif; }
+  </style>
 </head>
 
-<body class="h-screen overflow-hidden bg-gray-100">
-<div class="flex h-full">
+<body class="relative h-screen overflow-hidden text-slate-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-100">
+<div class="pointer-events-none absolute inset-0">
+  <div class="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl"></div>
+  <div class="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-lime-200/40 blur-3xl"></div>
+</div>
+<div class="relative flex h-full w-full gap-4 p-3 sm:p-4">
 
   <!-- SIDEBAR -->
-  <div class="w-1/3 bg-white border-r flex flex-col relative">
+  <div class="w-full md:w-[360px] lg:w-[380px] bg-white/80 border border-white/60 shadow-xl rounded-3xl flex flex-col relative overflow-hidden backdrop-blur-md">
 
-    <div class="p-4 bg-green-600 text-white text-xl font-bold flex items-center justify-between relative">
-      <span class="text-xl font-bold">ConnectX</span>
+    <div class="p-4 bg-gradient-to-r from-emerald-600 to-green-500 text-white flex items-center justify-between relative">
+      <span class="text-xl font-semibold tracking-tight">ConnectX</span>
 
       <div class="relative">
         <button id="menu-btn"
-          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-green-700 focus:outline-none"
+          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/15 focus:outline-none"
           aria-haspopup="true"
           aria-expanded="false"
           aria-controls="menu-dropdown"
@@ -31,7 +46,7 @@
         </button>
 
         <div id="menu-dropdown"
-          class="hidden absolute right-0 mt-2 w-36 bg-white text-gray-800 rounded-lg shadow-lg border overflow-hidden z-20">
+          class="hidden absolute right-0 mt-2 w-40 bg-white/95 text-gray-800 rounded-xl shadow-xl border border-white/60 overflow-hidden z-20 backdrop-blur">
           <a href="{% url 'accounts:profile' %}"
              class="block px-4 py-2 text-sm hover:bg-gray-100">
             Profile
@@ -47,25 +62,37 @@
       </div>
     </div>
 
-    <div class="p-3 border-b">
-      <form method="GET" action="{% url 'search_users' %}" class="p-3 border-b">
+    <div class="px-4 py-3 border-b border-white/60">
+      <div class="mb-3">
+        <div class="inline-flex w-full rounded-2xl bg-white/80 p-1 border border-white/60 shadow-sm">
+          <button id="tab-chats"
+            class="flex-1 px-3 py-2 text-sm rounded-xl bg-emerald-600 text-white font-medium transition">
+            Chats
+          </button>
+          <button id="tab-contacts"
+            class="flex-1 px-3 py-2 text-sm rounded-xl text-slate-600 hover:bg-white transition">
+            Contacts
+          </button>
+        </div>
+      </div>
+      <form id="search-form" method="GET" action="{% url 'search_users' %}">
           <input
             type="text"
             name="q"
             placeholder="Search users..."
-            class="w-full p-2 rounded bg-gray-100 outline-none focus:ring-2 focus:ring-green-400"
+            class="w-full rounded-2xl bg-white/90 px-4 py-2.5 text-sm shadow-sm border border-slate-200/70 outline-none focus:ring-4 focus:ring-emerald-200/50 focus:border-emerald-400"
           />
       </form>
 
     </div>
 
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 overflow-y-auto pb-20">
 
       {% for room in rooms %}
 
       <div id="room-{{room.id}}"
         onclick="openChat('{% if room.is_group %} {% url "group_chat" room.id %} {% else %} {% url "private_chat" room.other_user.id %}{% endif %}')"
-        class="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer border-b transition"
+        class="mx-3 mt-3 flex items-center gap-3 rounded-2xl border border-transparent bg-white/70 px-3 py-3 hover:bg-white hover:border-emerald-100 hover:shadow-sm cursor-pointer transition"
       >
 
         <!-- Avatar -->
@@ -73,8 +100,7 @@
 
     {% if room.avatar %}
         <img src="{{ room.avatar.url }}"
-             class="w-10 h-10 rounded-full object-cover chat-avatar"
-             data-user-id="{{ room.other_user.id }}">
+             class="w-10 h-10 rounded-full object-cover">
     {% else %}
         <!-- WhatsApp-style group fallback -->
         <div class="w-10 h-10 rounded-full bg-gray-400
@@ -87,12 +113,14 @@
 
     {% if room.other_user.profile.avatar.name != "avatars/default.png" %}
         <img src="{{ room.other_user.profile.avatar.url }}"
-             class="w-10 h-10 rounded-full object-cover">
+             class="w-10 h-10 rounded-full object-cover chat-avatar"
+             data-user-id="{{ room.other_user.id }}">
     {% else %}
         <!-- First letter fallback -->
-        <div class="w-10 h-10 rounded-full bg-green-500
+        <div class="w-10 h-10 rounded-full bg-green-500 chat-avatar
                     flex items-center justify-center
-                    text-white font-semibold">
+                    text-white font-semibold"
+             data-user-id="{{ room.other_user.id }}">
             {{ room.other_user.username|first|upper }}
         </div>
     {% endif %}
@@ -102,27 +130,28 @@
     
 
         <!-- Name + Message -->
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
 
-        <div class="font-semibold">
+        <div class="font-semibold text-slate-900 truncate">
             {% if room.is_group %}
                {{ room.name }}
             {% else %}
-            <span class="chat-username"
-              data-user-id="{{ room.other_user.id }}">
+              {% if room.other_user.first_name or room.other_user.last_name %}
+                {{ room.other_user.first_name }} {{ room.other_user.last_name }}
+              {% else %}
                 {{ room.other_user.username }}
-            </span>
+              {% endif %}
             {% endif %}
         </div>
 
 
-          <div class="text-sm text-gray-500 truncate">
+          <div class="text-sm text-slate-500 truncate">
             {{ room.last_message|default:"Start chatting..." }}
           </div>
 
         </div>
         <span id="unread-{{room.id}}"
-          class="hidden ml-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+          class="hidden ml-2 bg-emerald-500 text-white text-xs px-2.5 py-0.5 rounded-full shadow-sm">
         </span>
 
       </div>
@@ -130,10 +159,10 @@
       {% endfor %}
 
       <!-- Floating Create Group Button -->
-      <div class="absolute bottom-6 left-[22%]">
+      <div class="absolute bottom-6 right-6">
         <button
           onclick="openGroupModal()"
-          class="bg-green-600 hover:bg-green-700 text-white w-14 h-14 rounded-full text-3xl shadow-lg">
+          class="bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full text-3xl shadow-xl">
           +
         </button>
       </div>
@@ -142,19 +171,21 @@
 </div>
 
   <!-- CHAT PANEL -->
-  <div id="chat-container" class="flex-1 flex flex-col">
-    <div class="flex flex-col items-center justify-center h-full text-gray-400">
-      <div class="text-6xl mb-4">💬</div>
-      <div class="text-2xl font-semibold">Welcome to ConnectX</div>
-      <div class="mt-2">Select a chat to start messaging</div>
+  <div class="flex-1 bg-white/80 border border-white/60 shadow-xl rounded-3xl overflow-hidden backdrop-blur-md">
+    <div id="chat-container" class="h-full flex flex-col">
+      <div class="flex flex-col items-center justify-center h-full text-slate-400">
+        <div class="text-6xl mb-4">💬</div>
+        <div class="text-2xl font-semibold text-slate-700">Welcome to ConnectX</div>
+        <div class="mt-2 text-sm text-slate-500">Select a chat to start messaging</div>
+      </div>
     </div>
   </div>
 
 </div>
 <div id="groupModal"
-     class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center">
+     class="fixed inset-0 bg-black/20 backdrop-blur-md hidden items-center justify-center z-50">
 
-  <div class="bg-white w-96 p-6 rounded-lg shadow-lg">
+  <div class="bg-white/95 w-[92vw] max-w-md p-6 rounded-2xl shadow-2xl border border-white/60">
 
     <h2 class="text-xl font-semibold mb-4">Create Group</h2>
 
@@ -165,16 +196,17 @@
         name="group_name"
         placeholder="Group name"
         required
-        class="w-full p-2 border rounded mb-4"
+        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 mb-4 outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400"
       />
 
       <div class="max-h-40 overflow-y-auto mb-4">
            {% for relation in request.user.contacts.all %}
     
-           <label class="flex items-center gap-2 p-1">
+           <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50">
               <input type="checkbox"
                 name="members"
-                value="{{ relation.contact.id }}">
+                value="{{ relation.contact.id }}"
+                class="accent-emerald-500">
               
            {{ relation.contact.username }}
           </label>
@@ -185,11 +217,11 @@
       <div class="flex justify-end gap-2">
         <button type="button"
                 onclick="closeGroupModal()"
-                class="px-3 py-1 bg-gray-300 rounded">
+                class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200">
           Cancel
         </button>
 
-        <button class="px-3 py-1 bg-green-600 text-white rounded">
+        <button class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">
           Create
         </button>
       </div>
@@ -199,18 +231,22 @@
   </div>
 </div>
 
- <div id="profile-modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-40">
+ <div id="profile-modal" class="fixed inset-0 hidden items-center justify-center bg-black/20 backdrop-blur-md z-50">
 
-      <div class="bg-white w-80 p-6 rounded-lg shadow-lg text-center">
+      <div class="bg-white/95 w-[90vw] max-w-sm p-6 rounded-2xl shadow-2xl border border-white/60 text-center">
     
         <img id="profile-avatar"
-             class="w-24 h-24 rounded-full mx-auto mb-3 object-cover">
+             class="w-24 h-24 rounded-full mx-auto mb-3 object-cover hidden">
+
+        <div id="profile-avatar-fallback"
+             class="w-24 h-24 rounded-full mx-auto mb-3 bg-emerald-500 text-white flex items-center justify-center text-2xl font-semibold hidden">
+        </div>
     
         <h2 id="profile-name" class="text-xl font-semibold"></h2>
-        <p id="profile-bio" class="mt-3 text-gray-700"></p>
+        <p id="profile-bio" class="mt-3 text-slate-600"></p>
     
         <button onclick="closeProfile()"
-                class="mt-4 px-4 py-1 bg-green-600 text-white rounded">
+                class="mt-4 px-4 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">
           Close
         </button>
     
@@ -221,6 +257,10 @@
 <script>
 
   function openChat(url) {
+
+      if (typeof setActiveTab === "function") {
+          setActiveTab("chats");
+      }
   
       // 🔥 Close private socket if exists
       if (window.APP && APP.privateSocket) {
@@ -264,6 +304,83 @@
   
               }, 50);
           });
+  }
+</script>
+
+<script>
+  const chatContainer = document.getElementById("chat-container");
+  const tabChats = document.getElementById("tab-chats");
+  const tabContacts = document.getElementById("tab-contacts");
+  const searchForm = document.getElementById("search-form");
+  const welcomeHTML = chatContainer ? chatContainer.innerHTML : "";
+
+  function setActiveTab(active) {
+    if (!tabChats || !tabContacts) return;
+    if (active === "chats") {
+      tabChats.className = "flex-1 px-3 py-2 text-sm rounded-xl bg-emerald-600 text-white font-medium transition";
+      tabContacts.className = "flex-1 px-3 py-2 text-sm rounded-xl text-slate-600 hover:bg-white transition";
+    } else {
+      tabContacts.className = "flex-1 px-3 py-2 text-sm rounded-xl bg-emerald-600 text-white font-medium transition";
+      tabChats.className = "flex-1 px-3 py-2 text-sm rounded-xl text-slate-600 hover:bg-white transition";
+    }
+  }
+
+  function loadSideContent(url) {
+    if (!chatContainer) return;
+    // Close any active sockets when showing non-chat content
+    if (window.APP && APP.privateSocket) {
+      APP.privateSocket.close();
+      APP.privateSocket = null;
+    }
+    if (window.APP && APP.groupSocket) {
+      APP.groupSocket.close();
+      APP.groupSocket = null;
+    }
+    if (window.APP) {
+      APP.activeRoom = null;
+    }
+    fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then((res) => res.text())
+      .then((html) => {
+        chatContainer.innerHTML = html;
+        bindContactActions();
+      });
+  }
+
+  function bindContactActions() {
+    const chatButtons = document.querySelectorAll(".contact-chat-btn");
+    chatButtons.forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const url = btn.dataset.chatUrl;
+        if (!url) return;
+        openChat(url);
+      });
+    });
+  }
+
+  if (tabChats) {
+    tabChats.addEventListener("click", function () {
+      setActiveTab("chats");
+      if (chatContainer) {
+        chatContainer.innerHTML = welcomeHTML;
+      }
+    });
+  }
+
+  if (tabContacts) {
+    tabContacts.addEventListener("click", function () {
+      setActiveTab("contacts");
+      loadSideContent("{% url 'user_list' %}");
+    });
+  }
+
+  if (searchForm) {
+    searchForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const params = new URLSearchParams(new FormData(searchForm));
+      const url = `${searchForm.action}?${params.toString()}`;
+      loadSideContent(url);
+    });
   }
 </script>
 
@@ -369,9 +486,26 @@ function closeGroupModal(){
     .then(response => response.json())
     .then(data => {
 
-        document.getElementById("profile-name").innerText = data.username;
-        document.getElementById("profile-bio").innerText = data.bio || "";
-        document.getElementById("profile-avatar").src = data.avatar;
+        const nameEl = document.getElementById("profile-name");
+        const bioEl = document.getElementById("profile-bio");
+        const avatarImg = document.getElementById("profile-avatar");
+        const avatarFallback = document.getElementById("profile-avatar-fallback");
+
+        nameEl.innerText = data.username;
+        bioEl.innerText = data.bio || "";
+
+        const avatarUrl = data.avatar || "";
+        const isDefaultAvatar = avatarUrl.includes("avatars/default.png");
+
+        if (avatarUrl && !isDefaultAvatar) {
+            avatarImg.src = avatarUrl;
+            avatarImg.classList.remove("hidden");
+            avatarFallback.classList.add("hidden");
+        } else {
+            avatarImg.classList.add("hidden");
+            avatarFallback.textContent = (data.username || "?").trim().charAt(0).toUpperCase();
+            avatarFallback.classList.remove("hidden");
+        }
 
         document.getElementById("profile-modal").classList.remove("hidden");
         document.getElementById("profile-modal").classList.add("flex");

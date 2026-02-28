@@ -14,33 +14,36 @@
     <!-- <h3>Group: {{ room.name }}</h3> -->
     <div class="flex flex-col h-full">
       <!-- HEADER -->
-      <div class="bg-white shadow p-4 border-b">
-        <h2 class="font-semibold text-lg cursor-pointer"
-            onclick="openGroupInfo()">
-            {{ room.name }}
-        </h2>
+      <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold text-lg text-slate-900 cursor-pointer"
+              onclick="openGroupInfo()">
+              {{ room.name }}
+          </h2>
+          <span class="text-xs text-slate-500">Group chat</span>
+        </div>
       </div>
 
       <!-- MESSAGES -->
       <div
         id="messages"
-        class="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-2"
+        class="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3"
       >
        {% for msg in messages %}
 <div class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}">
 
   <div id="msg-{{ msg.id }}"
-       class="relative px-4 py-2 rounded-xl max-w-xs
-       {% if msg.sender.id == request.user.id %} bg-green-300 {% else %} bg-white {% endif %}">
+       class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm
+       {% if msg.sender.id == request.user.id %} bg-emerald-600 text-white {% else %} bg-white border border-slate-200/70 text-slate-900 {% endif %}">
 
     {% if not msg.sender.id == request.user.id %}
-      <div class="text-xs font-semibold text-green-700">
+      <div class="text-xs font-semibold text-emerald-700">
         {{ msg.sender.username }}
       </div>
     {% endif %}
 
     {% if msg.reply_to %}
-      <div class="reply-preview bg-gray-200 text-xs p-2 rounded mb-1 border-l-4 border-green-500 cursor-pointer"
+      <div class="reply-preview bg-emerald-50 text-xs p-2 rounded-lg mb-1 border-l-4 border-emerald-500 cursor-pointer text-slate-700"
            data-reply-id="{{ msg.reply_to.id }}">
         <strong>
           {% if msg.reply_to.sender.username == request.user.username %}
@@ -55,7 +58,7 @@
       </div>
     {% endif %}
 
-    <div class="msg-text">
+    <div class="msg-text text-[15px] leading-6">
      {% if msg.is_deleted %}
       <i class="text-gray-400 italic">This message was deleted</i>
      {% else %}
@@ -66,10 +69,10 @@
       {% endif %}
     </div>
     {% if not msg.is_deleted %}
-    <div class="controls text-xs text-gray-600 mt-1">
+    <div class="controls text-[11px] text-slate-500 mt-2">
       {{ msg.timestamp|time:"H:i" }}
 
-      <button class="reply-btn text-gray-500 text-xs ml-2"
+      <button class="reply-btn text-[11px] ml-2 {% if msg.sender.id == request.user.id %}text-emerald-100/90{% else %}text-slate-500{% endif %}"
               data-id="{{ msg.id }}"
               data-text="{{ msg.content|escapejs }}"
               data-user="{{ msg.sender.username }}">
@@ -79,14 +82,14 @@
       {% if msg.sender.id == request.user.id %}
         {% if msg.timestamp|timesince < "15 minutes" %}
         <button onclick="groupEditMessage({{ msg.id }}, '{{ msg.content|escapejs }}')"
-                class="text-blue-500 hover:text-blue-700 text-xs font-semibold ml-2">
+                class="text-blue-200 hover:text-blue-100 text-[11px] font-semibold ml-2">
           Edit
         </button>
         {% endif %}
       
 
         <button onclick="groupDeleteMessage({{ msg.id }})"
-                class="text-red-500 hover:text-red-700 text-xs font-semibold ml-2">
+                class="text-red-200 hover:text-red-100 text-[11px] font-semibold ml-2">
           Delete
         </button>
       {% endif %}
@@ -99,9 +102,9 @@
 </div> 
 
 <div id="groupInfoModal"
-     class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+     class="fixed inset-0 bg-black/20 backdrop-blur-md hidden items-center justify-center z-50">
 
-  <div class="bg-white w-96 p-6 rounded-lg shadow-lg max-h-[80vh] overflow-y-auto">
+  <div class="bg-white/95 w-[92vw] max-w-md p-6 rounded-2xl shadow-2xl border border-white/60 max-h-[80vh] overflow-y-auto">
 
     <!-- Close -->
     <div class="flex justify-between items-center mb-4">
@@ -125,7 +128,7 @@
         {{ room.name }}
       </div>
 
-      <div class="text-sm text-gray-500">
+      <div class="text-sm text-slate-500">
         Your role: {{ user_role|title }}
       </div>
     </div>
@@ -135,17 +138,17 @@
       <h3 class="font-semibold mb-2">Members</h3>
 
       {% for member in room.groupmember_set.all %}
-      <div class="flex justify-between items-center p-2 border-b">
+      <div class="flex justify-between items-center p-2 border-b border-slate-100">
 
         <div>
           {{ member.user.username }}
 
           {% if member.role == "creator" %}
-            <span class="text-xs bg-purple-500 text-white px-2 rounded ml-2">
+            <span class="text-xs bg-purple-500 text-white px-2 rounded-full ml-2">
               Admin
             </span>
           {% elif member.role == "admin" %}
-            <span class="text-xs bg-blue-500 text-white px-2 rounded ml-2">
+            <span class="text-xs bg-blue-500 text-white px-2 rounded-full ml-2">
               Admin
             </span>
           {% endif %}
@@ -184,7 +187,7 @@
       {% if user_role == "creator" or user_role == "admin" %}
         <div class="mt-4">
           <button onclick="showAddMember()"
-                  class="bg-green-500 text-white px-3 py-1 rounded">
+                  class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg">
             + Add Member
           </button>
         </div>
@@ -197,7 +200,7 @@
             <div class="flex justify-between items-center p-1">
               <span>{{ relation.contact.username }}</span>
               <button onclick="addMember({{ relation.contact.id}})"
-                      class="text-green-600 text-xs">
+                      class="text-emerald-600 text-xs">
                 Add
               </button>
             </div>
@@ -213,29 +216,31 @@
       <!-- <div id="typing-indicator" class="text-sm text-gray-500 h-5 ml-4"></div> -->
       
     <div id="reply-preview"
-     class="hidden bg-gray-100 px-3 py-2 border-l-4 border-green-500 text-sm flex justify-between items-start">
+     class="hidden bg-white/90 px-3 py-2 border-l-4 border-emerald-500 text-sm flex justify-between items-start backdrop-blur">
 
         <div>
-          <div id="reply-user" class="font-semibold text-gray-700"></div>
-          <div id="reply-text" class="text-gray-600 truncate max-w-xs"></div>
+          <div id="reply-user" class="font-semibold text-slate-700"></div>
+          <div id="reply-text" class="text-slate-500 truncate max-w-xs"></div>
         </div>
 
         <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
     </div>
       <!-- INPUT -->
-      <div class="flex gap-2 p-3 bg-white border-t">
-        <input
-          id="messageInput"
-          class="flex-1 border rounded-lg px-3 py-2 outline-none"
-          placeholder="Type a message..."
-        />
+      <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60">
+        <div class="flex items-center gap-2 bg-white rounded-2xl shadow-sm border border-slate-200/70 px-3 py-2">
+          <input
+            id="messageInput"
+            class="flex-1 bg-transparent outline-none text-sm placeholder-slate-400"
+            placeholder="Type a message..."
+          />
 
-        <button
-          onclick="sendGroupMessage()"
-          class="bg-green-500 text-white px-4 py-2 rounded-lg"
-        >
-          Send
-        </button>
+          <button
+            onclick="sendGroupMessage()"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold"
+          >
+            Send
+          </button>
+        </div>
       </div>
 
     
