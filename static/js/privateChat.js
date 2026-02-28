@@ -95,8 +95,10 @@ function connectSocket() {
   const roomId = data.dataset.roomId;
   const username = data.dataset.username;
   const otherUser = data.dataset.other;
+  const otherUserId = data.dataset.otherId;
   APP.username = username;
   APP.otherUser = otherUser;
+  APP.otherUserId = otherUserId;
   APP.activeRoomId = roomId;
 
   if (APP.activeRoom === roomName) {
@@ -527,6 +529,24 @@ function getCSRFToken() {
     .find(row => row.startsWith("csrftoken"))
     ?.split("=")[1];
 }
+
+window.addContact = function () {
+  const btn = document.getElementById("add-contact-btn");
+  if (!APP.otherUserId) return;
+  if (btn && btn.disabled) return;
+
+  fetch(`/add-contact/${APP.otherUserId}/`)
+    .then(() => {
+      if (btn) {
+        btn.innerText = "Added";
+        btn.disabled = true;
+        btn.classList.add("opacity-60", "cursor-not-allowed");
+      }
+    })
+    .catch((err) => {
+      console.error("Add contact error:", err);
+    });
+};
 
 // EDIT CLICK HANDLER
 document.addEventListener("click", function (e) {

@@ -101,15 +101,11 @@ def home(request):
 
         # find the other user
         other_user = room.users.exclude(id=request.user.id).first()
+        if not other_user:
+            continue
 
-        # allow ONLY if contact exists
-        if Contact.objects.filter(
-            owner=request.user,
-            contact=other_user
-        ).exists():
-
-            room.other_user = other_user
-            filtered_rooms.append(room)
+        room.other_user = other_user
+        filtered_rooms.append(room)
 
     return render(request, "chat/index.html", {
         "rooms": filtered_rooms
@@ -151,6 +147,10 @@ def private_chat(request, user_id):
         blocker=request.user,
         blocked=other_user
     ).exists()
+    is_contact = Contact.objects.filter(
+        owner=request.user,
+        contact=other_user
+    ).exists()
 
     messages= Message.objects.filter(room=room).order_by("timestamp")
     status, _ = UserStatus.objects.get_or_create(user=other_user)
@@ -162,7 +162,8 @@ def private_chat(request, user_id):
         "messages":messages,
         "status":status,
         "contacts": contacts,
-        "is_blocked": is_blocked
+        "is_blocked": is_blocked,
+        "is_contact": is_contact
     })
 
 @login_required

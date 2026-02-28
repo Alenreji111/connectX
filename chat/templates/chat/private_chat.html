@@ -34,14 +34,15 @@
   data-room-id="{{ room.id }}"
   data-username="{{ request.user.username }}"
   data-other="{{ other_user.username }}"
+  data-other-id="{{ other_user.id }}"
   style="display: none"
 ></div>
 
 <div class="flex flex-col h-full">
   <!-- HEADER -->
   <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
         {% if other_user.profile.avatar.name != "avatars/default.png" %}
           <img
             src="{{ other_user.profile.avatar.url }}"
@@ -66,11 +67,20 @@
           </span>
         </h2>
       </div>
-      <div class="flex items-center gap-3 text-sm">
-        <button id="block-btn"
-          class="text-red-500 hover:text-red-600 font-medium">
-          Block
-        </button>
+        <div class="flex items-center gap-3 text-sm">
+          {% if not is_contact %}
+            <button
+              id="add-contact-btn"
+              onclick="addContact()"
+              class="text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              Add Contact
+            </button>
+          {% endif %}
+          <button id="block-btn"
+            class="text-red-500 hover:text-red-600 font-medium">
+            Block
+          </button>
         <span id="status-text" class="text-xs text-slate-500">
           {% if status.is_online %}
           <span class="text-emerald-600 font-semibold">● Online</span>
