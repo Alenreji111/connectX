@@ -48,10 +48,10 @@
 
         <div id="menu-dropdown"
           class="hidden absolute right-0 mt-2 w-40 bg-white/95 text-gray-800 rounded-xl shadow-xl border border-white/60 overflow-hidden z-20 backdrop-blur">
-          <a href="{% url 'accounts:profile' %}"
-             class="block px-4 py-2 text-sm hover:bg-gray-100">
+          <button id="menu-profile"
+             class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
             Profile
-          </a>
+          </button>
           <form method="POST" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit"
@@ -92,8 +92,9 @@
       {% for room in rooms %}
 
       <div id="room-{{room.id}}"
-        onclick="openChat('{% if room.is_group %} {% url "group_chat" room.id %} {% else %} {% url "private_chat" room.other_user.id %}{% endif %}')"
-        class="mx-3 mt-3 flex items-center gap-3 rounded-2xl border border-transparent bg-white/70 px-3 py-3 hover:bg-white hover:border-emerald-100 hover:shadow-sm cursor-pointer transition"
+        data-room-id="{{ room.id }}"
+        onclick="openChat('{% if room.is_group %} {% url "group_chat" room.id %} {% else %} {% url "private_chat" room.other_user.id %}{% endif %}', '{{ room.id }}')"
+        class="cx-room mx-3 mt-3 flex items-center gap-3 rounded-2xl border border-transparent bg-white/70 px-3 py-3 hover:bg-white hover:border-emerald-100 hover:shadow-sm cursor-pointer transition"
       >
 
         <!-- Avatar -->
@@ -146,7 +147,7 @@
         </div>
 
 
-          <div class="text-sm text-slate-500 truncate">
+          <div class="text-sm text-slate-500 truncate" id="last-{{ room.id }}">
             {{ room.last_message|default:"Start chatting..." }}
           </div>
 
@@ -266,7 +267,17 @@
 
 <script>
 
-  function openChat(url) {
+  function openChat(url, roomId) {
+
+      if (roomId) {
+        localStorage.setItem("cx_active_room_id", String(roomId));
+      }
+      if (url) {
+        localStorage.setItem("cx_active_chat_url", url);
+      }
+      if (roomId && typeof setActiveRoom === "function") {
+        setActiveRoom(roomId);
+      }
 
       if (typeof setActiveTab === "function") {
           setActiveTab("chats");
@@ -295,19 +306,28 @@
   }
   
   function loadChat(url){
-  
+
       fetch(url)
           .then(res => res.text())
           .then(html => {
-  
+
               document.getElementById("chat-container").innerHTML = html;
-  
+
               setTimeout(() => {
-  
+                  const privateData = document.getElementById("chat-data");
+                  const groupData = document.getElementById("group-chat-data");
+                  const roomId = privateData?.dataset.roomId || groupData?.dataset.roomId;
+                  if (roomId) {
+                    localStorage.setItem("cx_active_room_id", String(roomId));
+                    if (typeof setActiveRoom === "function") {
+                      setActiveRoom(roomId);
+                    }
+                  }
+
                   if (typeof connectSocket === "function") {
                       connectSocket();      // private
                   }
-  
+
                   if (typeof connectGroupSocket === "function") {
                       connectGroupSocket(); // group
                   }
@@ -322,6 +342,7 @@
   const tabChats = document.getElementById("tab-chats");
   const tabContacts = document.getElementById("tab-contacts");
   const searchForm = document.getElementById("search-form");
+  const profileMenuBtn = document.getElementById("menu-profile");
   const welcomeHTML = chatContainer ? chatContainer.innerHTML : "";
 
   function setActiveTab(active) {
@@ -333,6 +354,24 @@
       tabContacts.className = "flex-1 px-3 py-2 text-sm rounded-xl bg-emerald-600 text-white font-medium transition";
       tabChats.className = "flex-1 px-3 py-2 text-sm rounded-xl text-slate-600 hover:bg-white transition";
     }
+  }
+
+  function setActiveRoom(roomId) {
+    const rooms = document.querySelectorAll(".cx-room");
+    rooms.forEach((room) => {
+      room.classList.remove("ring-2", "ring-emerald-300", "bg-white", "border-emerald-200");
+    });
+    if (!roomId) return;
+    const active = document.querySelector(`.cx-room[data-room-id="${roomId}"]`);
+    if (active) {
+      active.classList.add("ring-2", "ring-emerald-300", "bg-white", "border-emerald-200");
+    }
+  }
+
+  function bumpRoom(roomId) {
+    const room = document.getElementById("room-" + roomId);
+    if (!room || !room.parentNode) return;
+    room.parentNode.prepend(room);
   }
 
   function loadSideContent(url) {
@@ -392,6 +431,29 @@
       loadSideContent(url);
     });
   }
+
+  if (profileMenuBtn) {
+    profileMenuBtn.addEventListener("click", function () {
+      setActiveTab("chats");
+      loadSideContent("{% url 'accounts:profile' %}");
+    });
+  }
+
+  function initPersistentChat() {
+    const savedUrl = localStorage.getItem("cx_active_chat_url");
+    const savedRoomId = localStorage.getItem("cx_active_room_id");
+    if (savedUrl) {
+      openChat(savedUrl, savedRoomId);
+    } else if (savedRoomId) {
+      setActiveRoom(savedRoomId);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initPersistentChat);
+  } else {
+    initPersistentChat();
+  }
 </script>
 
 
@@ -414,13 +476,11 @@
   
           const room = document.getElementById("room-" + data.room_id);
           const badge = document.getElementById("unread-" + data.room_id);
-  
-          if(room){
-              const parent = room.parentNode;
-              parent.prepend(room); // 🔥 moves to top
-          }
-  
+
           if(data.count > 0){
+              if (room && typeof bumpRoom === "function") {
+                bumpRoom(data.room_id);
+              }
               badge.innerText = data.count;
               badge.style.display = "flex";
           }else{
@@ -429,6 +489,13 @@
           }
       }
   
+      if(data.type === "last_message"){
+          const lastEl = document.getElementById("last-" + data.room_id);
+          if (lastEl) {
+              lastEl.innerText = data.preview || "Start chatting...";
+          }
+      }
+
       const tick = document.getElementById("tick-" + data.message_id);
   
       if(!tick) return;

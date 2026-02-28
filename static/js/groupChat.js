@@ -86,6 +86,7 @@ function connectGroupSocket(){
 
     const roomId = data.dataset.roomId;
     const currentUserId = data.dataset.userId;
+    APP.activeRoomId = roomId;
 
     const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
@@ -249,6 +250,10 @@ function connectGroupSocket(){
 
         box.insertAdjacentHTML("beforeend", messageHTML);
         box.scrollTop = box.scrollHeight;
+
+        if (window.bumpRoom && APP.activeRoomId) {
+            window.bumpRoom(APP.activeRoomId);
+        }
     };
 }
 
@@ -266,6 +271,10 @@ window.sendGroupMessage = function(){
             message: message,
             reply_to: APP.replyingTo
         }));
+    }
+
+    if (window.bumpRoom && APP.activeRoomId) {
+        window.bumpRoom(APP.activeRoomId);
     }
 
     input.value = "";

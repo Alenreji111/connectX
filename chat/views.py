@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView
 from .models import Room, Message , UserStatus ,Contact , GroupMember
 from django.contrib.auth.models import User
 from .utils import get_private_room
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, OuterRef, Subquery
 from accounts.models import Block
 
 
@@ -77,9 +77,18 @@ class RedirectAuthenticatedLoginView(LoginView):
 @login_required
 def home(request):
 
+    last_message_qs = (
+        Message.objects
+        .filter(room=OuterRef("pk"))
+        .order_by("-timestamp")
+        .values("content")[:1]
+    )
+
     rooms = Room.objects.filter(
         users=request.user
-    ).prefetch_related('users__profile').order_by("-last_activity" , "-created_at")
+    ).prefetch_related('users__profile').annotate(
+        last_message=Subquery(last_message_qs)
+    ).order_by("-last_activity" , "-created_at")
 
     filtered_rooms = []
 

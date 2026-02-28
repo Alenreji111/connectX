@@ -469,7 +469,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             }
         )
         users = await sync_to_async(list)(
-            self.room.users.exclude(id=sender.id)
+            self.room.users.all()
         )
         
         for user in users:
@@ -487,6 +487,15 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                     "type": "unread_notify",
                     "room_id": self.room.id,
                     "count": unread_count
+                }
+            )
+
+            await self.channel_layer.group_send(
+                f"user_{user.id}",
+                {
+                    "type": "last_message",
+                    "room_id": self.room.id,
+                    "preview": msg.content
                 }
             )
 
@@ -845,6 +854,20 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
+        group_users = await sync_to_async(list)(
+            self.room.users.all()
+        )
+
+        for user in group_users:
+            await self.channel_layer.group_send(
+                f"user_{user.id}",
+                {
+                    "type": "last_message",
+                    "room_id": self.room.id,
+                    "preview": msg.content
+                }
+            )
+
 
     async def group_message(self, event):
         await self.send(text_data=json.dumps(event))
@@ -911,6 +934,13 @@ class UserNotificationConsumer(AsyncWebsocketConsumer):
             "type": "read",
             "message_id": event["message_id"],
             "room_id": event["room_id"]
+        }))
+
+    async def last_message(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "last_message",
+            "room_id": event["room_id"],
+            "preview": event["preview"]
         }))
 
 

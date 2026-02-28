@@ -1,0 +1,55 @@
+<div class="h-full overflow-y-auto p-6">
+  <div class="relative overflow-hidden bg-white/90 border border-white/60 rounded-3xl shadow-lg p-6 max-w-2xl">
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-emerald-500/20 to-green-500/20"></div>
+    <div class="relative">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold text-slate-900">Profile</h1>
+          <p class="text-sm text-slate-500 mt-1">Keep your avatar and bio up to date.</p>
+        </div>
+        <span class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+          ConnectX
+        </span>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data" class="mt-6 space-y-6">
+        {% csrf_token %}
+
+        <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+          {% if request.user.profile.avatar %}
+            <img src="{{ request.user.profile.avatar.url }}" class="w-20 h-20 rounded-full object-cover ring-2 ring-emerald-200">
+          {% else %}
+            <div class="w-20 h-20 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl font-semibold ring-2 ring-emerald-200">
+              {{ request.user.username|first|upper }}
+            </div>
+          {% endif %}
+
+          <div>
+            <label class="text-sm text-slate-600">Change avatar</label>
+            <input
+              type="file"
+              name="avatar"
+              class="block mt-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:px-3 file:py-1.5 file:text-sm file:font-semibold hover:file:bg-emerald-700"
+            >
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm text-slate-600">Bio</label>
+          <textarea
+            name="bio"
+            rows="4"
+            placeholder="Write something about you..."
+            class="w-full mt-2 p-3 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-200/60 focus:border-emerald-400 resize-none"
+          >{{ profile.bio }}</textarea>
+        </div>
+
+        <div class="flex justify-end">
+          <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl font-semibold">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

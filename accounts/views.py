@@ -25,7 +25,10 @@ def profile(request):
 
         return redirect("home")
 
-    return render(request, "accounts/profile.html", {
+    template = "accounts/profile.html"
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        template = "accounts/partials/profile_panel.html"
+    return render(request, template, {
         "profile": profile
     })
 

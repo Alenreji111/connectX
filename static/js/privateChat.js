@@ -92,10 +92,12 @@ function connectSocket() {
   }
 
   const roomName = data.dataset.room;
+  const roomId = data.dataset.roomId;
   const username = data.dataset.username;
   const otherUser = data.dataset.other;
   APP.username = username;
   APP.otherUser = otherUser;
+  APP.activeRoomId = roomId;
 
   if (APP.activeRoom === roomName) {
     console.log("Already connected to this room");
@@ -331,6 +333,10 @@ console.log("PRIVATE MESSAGE EVENT:", data);
 
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
+
+    if (window.bumpRoom && APP.activeRoomId) {
+      window.bumpRoom(APP.activeRoomId);
+    }
   };
 
   APP.privateSocket.onclose = function () {
@@ -356,6 +362,10 @@ function sendPrivateMessage() {
     APP.privateSocket.send(JSON.stringify({ typing: false }));
   } else {
     APP.messageQueue.push(payload);
+  }
+
+  if (window.bumpRoom && APP.activeRoomId) {
+    window.bumpRoom(APP.activeRoomId);
   }
 
   input.value = "";
