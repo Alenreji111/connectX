@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'chat.middleware.AuthNoCacheMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -94,6 +95,7 @@ CHANNEL_LAYERS = {
 }
 
 LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/login/"
 
 LOGOUT_REDIRECT_URL = "/login/"
 

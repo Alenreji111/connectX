@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect , get_object_or_404
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
 from .models import Room, Message , UserStatus ,Contact , GroupMember
 from django.contrib.auth.models import User
 from .utils import get_private_room
@@ -28,6 +29,11 @@ def signup(request):
     return render(request, "signup.html", {"form": form})
 
 
+class RedirectAuthenticatedLoginView(LoginView):
+    redirect_authenticated_user = True
+
+
+@login_required
 def home(request):
 
     rooms = Room.objects.filter(
@@ -59,7 +65,7 @@ def home(request):
         "rooms": filtered_rooms
     })
 
-
+@login_required
 def user_list(request):
     contacts = Contact.objects.filter(owner=request.user).select_related("contact")
     user_data = []
@@ -72,7 +78,7 @@ def user_list(request):
         })
     return render(request, "chat/user_list.html", {"user_data":user_data})
 
-
+@login_required
 def private_chat(request, user_id):
     if request.user.id==user_id:
         return render(request, "chat/error.html", {
@@ -106,6 +112,7 @@ def private_chat(request, user_id):
         "is_blocked": is_blocked
     })
 
+@login_required
 def create_group(request):
     if request.method == "POST":
         group_name = request.POST.get("group_name")
@@ -135,7 +142,7 @@ def create_group(request):
     users = User.objects.exclude(id=request.user.id)
     return render(request, "chat/create_group.html", {"users": users})
 
-
+@login_required
 def group_chat(request, room_id):
     room = get_object_or_404(Room, id=room_id, is_group=True)
 
@@ -180,6 +187,7 @@ def unread_count(user ,other_user):
         is_read=False
     ).exclude(sender=user).count()
 
+@login_required
 def my_groups(request):
     groups = Room.objects.filter(
         is_group=True,
@@ -190,6 +198,7 @@ def my_groups(request):
         "groups": groups
     })
 
+@login_required
 def search_users(request):
     q = request.GET.get("q", "")
     users = User.objects.filter(
@@ -213,6 +222,7 @@ def search_users(request):
         "user_data": user_data
     })
 
+@login_required
 def add_contact(request, user_id):
     user = get_object_or_404(User, id=user_id)
 
@@ -223,6 +233,7 @@ def add_contact(request, user_id):
 
     return redirect("home")
 
+@login_required
 def load_private_chat(request, username):
     other_user = User.objects.get(username=username)
 
