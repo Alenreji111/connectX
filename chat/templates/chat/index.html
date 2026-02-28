@@ -12,12 +12,39 @@
   <!-- SIDEBAR -->
   <div class="w-1/3 bg-white border-r flex flex-col relative">
 
-    <div class="p-4 bg-green-600 text-white text-xl font-bold">
-      <span class="text-xl font-bold" >ConnectX</span> 
-        <a href="{% url 'accounts:profile' %}"
-          class="text-sm bg-white text-green-600 px-3 py-1 rounded-lg">
-          Profile
-        </a>
+    <div class="p-4 bg-green-600 text-white text-xl font-bold flex items-center justify-between relative">
+      <span class="text-xl font-bold">ConnectX</span>
+
+      <div class="relative">
+        <button id="menu-btn"
+          class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-green-700 focus:outline-none"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="menu-dropdown"
+          type="button"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="5" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="12" cy="19" r="2"></circle>
+          </svg>
+        </button>
+
+        <div id="menu-dropdown"
+          class="hidden absolute right-0 mt-2 w-36 bg-white text-gray-800 rounded-lg shadow-lg border overflow-hidden z-20">
+          <a href="{% url 'accounts:profile' %}"
+             class="block px-4 py-2 text-sm hover:bg-gray-100">
+            Profile
+          </a>
+          <form method="POST" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit"
+              class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
+              Logout
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
 
     <div class="p-3 border-b">
@@ -358,6 +385,27 @@ function closeGroupModal(){
     document.getElementById("profile-modal").classList.add("hidden");
     document.getElementById("profile-modal").classList.remove("flex");
   }  
+</script>
+
+<script>
+  const menuBtn = document.getElementById("menu-btn");
+  const menuDropdown = document.getElementById("menu-dropdown");
+
+  if (menuBtn && menuDropdown) {
+    menuBtn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      const willOpen = menuDropdown.classList.contains("hidden");
+      menuDropdown.classList.toggle("hidden");
+      menuBtn.setAttribute("aria-expanded", String(willOpen));
+    });
+
+    document.addEventListener("click", function() {
+      if (!menuDropdown.classList.contains("hidden")) {
+        menuDropdown.classList.add("hidden");
+        menuBtn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
 </script>
 
 

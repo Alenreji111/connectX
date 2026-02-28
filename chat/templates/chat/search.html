@@ -22,22 +22,37 @@
               class="w-12 h-12 rounded-full object-cover"
             />
 
-            <div class="font-semibold">{{ item.user.username }}</div>
+            <div class="leading-tight">
+              <div class="font-semibold text-gray-900">
+                {% if item.user.first_name or item.user.last_name %}
+                  {{ item.user.first_name }} {{ item.user.last_name }}
+                {% else %}
+                  {{ item.user.username }}
+                {% endif %}
+              </div>
+              {% if item.user.email %}
+                <div class="text-sm text-gray-500">{{ item.user.email }}</div>
+              {% endif %}
+            </div>
           </div>
 
           {% if item.is_added %}
-
-          <span class="text-gray-400 font-semibold"> Added </span>
-
+            <form method="POST" action="{% url 'remove_contact' item.user.id %}">
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="bg-red-500 hover:bg-red-600 text-white px-4 py-1 rounded-lg"
+              >
+                Remove
+              </button>
+            </form>
           {% else %}
-
-          <a
-            href="{% url 'add_contact' item.user.id %}"
-            class="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg"
-          >
-            Add
-          </a>
-
+            <a
+              href="{% url 'add_contact' item.user.id %}"
+              class="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg"
+            >
+              Add
+            </a>
           {% endif %}
         </div>
 

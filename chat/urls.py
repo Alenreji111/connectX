@@ -15,6 +15,7 @@ urlpatterns = [
     path("groups/", views.my_groups, name="my_groups"),
     path("search/", views.search_users, name="search_users"),
     path("add-contact/<int:user_id>/", views.add_contact, name="add_contact"),
+    path("remove-contact/<int:user_id>/", views.remove_contact, name="remove_contact"),
     path("load-chat/<str:username>/", views.load_private_chat),
 
 

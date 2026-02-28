@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 def get_private_room(user1, user2):
     
     if user1.id==user2.id:
-        return none
+        return None
         
     users = sorted([user1.id, user2.id])
     room_name = f"private_{users[0]}_{users[1]}"

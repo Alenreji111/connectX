@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect , get_object_or_404
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from .models import Room, Message , UserStatus ,Contact , GroupMember
@@ -11,12 +11,36 @@ from accounts.models import Block
 
 # Create your views here
 class StyledUserCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("first_name", "last_name", "username", "password1", "password2")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            placeholder = field.label or ""
             field.widget.attrs.update({
-                "class": "w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                "class": (
+                    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 "
+                    "text-gray-900 placeholder-gray-400 shadow-sm outline-none "
+                    "transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                ),
+                "placeholder": placeholder,
+                "autocomplete": (
+                    "given-name" if name == "first_name" else
+                    "family-name" if name == "last_name" else
+                    "username" if name == "username" else
+                    "new-password"
+                ),
             })
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.first_name = self.cleaned_data.get("first_name", "")
+        user.last_name = self.cleaned_data.get("last_name", "")
+        if commit:
+            user.save()
+        return user
 def signup(request):
     if request.method == "POST":
         form = StyledUserCreationForm(request.POST)
@@ -29,8 +53,25 @@ def signup(request):
     return render(request, "signup.html", {"form": form})
 
 
+class StyledAuthenticationForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            placeholder = field.label or ""
+            field.widget.attrs.update({
+                "class": (
+                    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 "
+                    "text-gray-900 placeholder-gray-400 shadow-sm outline-none "
+                    "transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                ),
+                "placeholder": placeholder,
+                "autocomplete": "username" if name == "username" else "current-password",
+            })
+
+
 class RedirectAuthenticatedLoginView(LoginView):
     redirect_authenticated_user = True
+    form_class = StyledAuthenticationForm
 
 
 @login_required
@@ -231,7 +272,21 @@ def add_contact(request, user_id):
         contact=user
     )
 
+    get_private_room(request.user, user)
+
     return redirect("home")
+
+@login_required
+def remove_contact(request, user_id):
+    if request.method != "POST":
+        return redirect("home")
+
+    Contact.objects.filter(
+        owner=request.user,
+        contact_id=user_id
+    ).delete()
+
+    return redirect(request.META.get("HTTP_REFERER", "home"))
 
 @login_required
 def load_private_chat(request, username):
