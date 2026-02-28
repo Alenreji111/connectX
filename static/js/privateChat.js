@@ -186,9 +186,9 @@ function openNewSocket(roomName) {
          ${isMe ? "bg-green-300" : "bg-white"}">
 
            ${data.reply_to ? `
-            <div class="bg-gray-100 border-l-4 border-green-500 
+            <div class="reply-preview bg-gray-100 border-l-4 border-green-500 
                         px-2 py-1 mb-2 text-xs cursor-pointer"
-                 onclick="scrollToMessage(${data.reply_to.id})">
+                 data-reply-id="${data.reply_to.id}">
 
                 <div class="font-semibold text-gray-700">
                     ${data.reply_to.username === APP.username ? "You" : data.reply_to.username}
@@ -217,7 +217,21 @@ function openNewSocket(roomName) {
               isMe
                 ? `
                     <span id="tick-${data.message_id}">✔</span>
+                  `
+                : ""
+            }
 
+            <button 
+                class="reply-btn text-gray-500 ml-1 text-xs"
+                data-id="${data.message_id}"
+                data-text="${data.message.replace(/\"/g, "&quot;")}"
+                data-user="${isMe ? "You" : data.username}">
+                Reply
+            </button>
+
+            ${
+              isMe
+                ? `
                     <button 
                         class="edit-btn text-blue-500 ml-1 text-xs"
                         data-id="${data.message_id}"

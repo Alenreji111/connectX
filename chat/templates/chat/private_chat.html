@@ -125,11 +125,11 @@
             <span class="blue-tick">✔✔</span>
             {% elif msg.is_delivered %} ✔✔ {% else %} ✔ {% endif %} {% endif %}
           </span>
-          {% if msg.sender.id == request.user.id and not msg.is_deleted %}
+          {% if not msg.is_deleted %}
            <button class="reply-btn text-gray-500 text-xs"
             data-id="{{ msg.id }}"
-            data-text="{{ msg.content }}"
-            data-user="{{ msg.sender.username }}">
+            data-text="{{ msg.content|escapejs }}"
+            data-user="{% if msg.sender.id == request.user.id %}You{% else %}{{ msg.sender.username }}{% endif %}">
                Reply
            </button>
            {% endif %}
@@ -191,5 +191,4 @@
     </button>
   </div>
 </div>
-
 

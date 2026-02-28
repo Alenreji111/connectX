@@ -517,19 +517,34 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         msg = await sync_to_async(Message.objects.get)(id=event["message_id"])
 
         if msg.sender_id != user.id:
+            # Receiver is currently in this room, so mark read immediately
+            await sync_to_async(Message.objects.filter(id=msg.id).update)(
+                is_delivered=True,
+                is_read=True
+            )
 
-            msg.is_delivered = True
-            await sync_to_async(msg.save)()
-
-        # notify sender
+            # notify sender: read (blue tick)
             await self.channel_layer.group_send(
-               f"user_{msg.sender_id}",
+                f"user_{msg.sender_id}",
                 {
-                    "type": "message_delivered",
+                    "type": "message_read",
                     "message_id": msg.id,
                     "room_id": msg.room_id
                 }
             )
+
+            # clear unread badge for receiver
+            await self.channel_layer.group_send(
+                f"user_{user.id}",
+                {
+                    "type": "unread_notify",
+                    "room_id": msg.room_id,
+                    "count": 0
+                }
+            )
+        else:
+            # Sender side: nothing to update
+            return
         
     async def message_deleted(self, event):
         await self.send(text_data=json.dumps({
@@ -900,4 +915,3 @@ class UserNotificationConsumer(AsyncWebsocketConsumer):
 
 
     
-
