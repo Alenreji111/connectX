@@ -38,11 +38,17 @@
   style="display: none"
 ></div>
 
-<div class="flex flex-col h-full">
+<div class="flex flex-col h-full min-h-0">
   <!-- HEADER -->
   <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
+          <button
+            class="md:hidden text-slate-500 text-sm px-2 py-1 rounded-lg hover:bg-slate-100"
+            onclick="showChatList()"
+          >
+            Back
+          </button>
         {% if other_user.profile.avatar.name != "avatars/default.png" %}
           <img
             src="{{ other_user.profile.avatar.url }}"
@@ -93,7 +99,7 @@
   <!-- MESSAGES -->
   <div
     id="messages"
-    class="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3">
+    class="flex-1 min-h-0 overflow-y-auto p-5 pb-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3">
     {% for msg in messages %}
 
     <div
@@ -218,7 +224,7 @@
     window.IS_BLOCKED = {{ is_blocked|yesno:"true,false" }};
    </script>
   <!-- INPUT -->
-  <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60">
+  <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60 sticky bottom-0 z-10" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));">
     <div class="flex items-center gap-2 bg-white rounded-2xl shadow-sm border border-slate-200/70 px-3 py-2">
       <input
         id="messageInput"

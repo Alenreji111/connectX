@@ -12,11 +12,17 @@
   </head>
   <body>
     <!-- <h3>Group: {{ room.name }}</h3> -->
-    <div class="flex flex-col h-full">
+    <div class="flex flex-col h-full min-h-0">
       <!-- HEADER -->
       <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3 cursor-pointer" onclick="openGroupInfo()">
+            <button
+              class="md:hidden text-slate-500 text-sm px-2 py-1 rounded-lg hover:bg-slate-100"
+              onclick="event.stopPropagation(); showChatList()"
+            >
+              Back
+            </button>
             {% if room.avatar %}
               <img src="{{ room.avatar.url }}"
                    class="w-10 h-10 rounded-full object-cover">
@@ -36,7 +42,7 @@
       <!-- MESSAGES -->
       <div
         id="messages"
-        class="flex-1 overflow-y-auto p-5 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3"
+        class="flex-1 min-h-0 overflow-y-auto p-5 pb-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3"
       >
        {% for msg in messages %}
 <div class="flex {% if msg.sender.id == request.user.id %}justify-end{% else %}justify-start{% endif %}">
@@ -260,7 +266,7 @@
         <button onclick="clearReply()" class="text-red-500 text-xs">X</button>
     </div>
       <!-- INPUT -->
-      <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60">
+      <div class="p-3 bg-white/80 backdrop-blur border-t border-white/60 sticky bottom-0 z-10" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));">
         <div class="flex items-center gap-2 bg-white rounded-2xl shadow-sm border border-slate-200/70 px-3 py-2">
           <input
             id="messageInput"
