@@ -16,10 +16,19 @@
       <!-- HEADER -->
       <div class="bg-white/80 backdrop-blur border-b border-white/60 p-4">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold text-lg text-slate-900 cursor-pointer"
-              onclick="openGroupInfo()">
+          <div class="flex items-center gap-3 cursor-pointer" onclick="openGroupInfo()">
+            {% if room.avatar %}
+              <img src="{{ room.avatar.url }}"
+                   class="w-10 h-10 rounded-full object-cover">
+            {% else %}
+              <div class="w-10 h-10 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-lg">
+                👥
+              </div>
+            {% endif %}
+            <h2 class="font-semibold text-lg text-slate-900">
               {{ room.name }}
-          </h2>
+            </h2>
+          </div>
           <span class="text-xs text-slate-500">Group chat</span>
         </div>
       </div>
@@ -38,7 +47,13 @@
 
     {% if not msg.sender.id == request.user.id %}
       <div class="text-xs font-semibold text-emerald-700">
-        {{ msg.sender.username }}
+        <span class="chat-username cursor-pointer" data-user-id="{{ msg.sender.id }}">
+          {% if msg.sender.first_name or msg.sender.last_name %}
+            {{ msg.sender.first_name }} {{ msg.sender.last_name }}
+          {% else %}
+            {{ msg.sender.username }}
+          {% endif %}
+        </span>
       </div>
     {% endif %}
 
@@ -75,7 +90,7 @@
       <button class="reply-btn text-[11px] ml-2 {% if msg.sender.id == request.user.id %}text-emerald-100/90{% else %}text-slate-500{% endif %}"
               data-id="{{ msg.id }}"
               data-text="{{ msg.content|escapejs }}"
-              data-user="{{ msg.sender.username }}">
+              data-user="{% if msg.sender.first_name or msg.sender.last_name %}{{ msg.sender.first_name }} {{ msg.sender.last_name }}{% else %}{{ msg.sender.username }}{% endif %}">
         Reply
       </button>
 
@@ -141,7 +156,11 @@
       <div class="flex justify-between items-center p-2 border-b border-slate-100">
 
         <div>
-          {{ member.user.username }}
+          {% if member.user.first_name or member.user.last_name %}
+            {{ member.user.first_name }} {{ member.user.last_name }} - {{ member.user.username }}
+          {% else %}
+            {{ member.user.username }}
+          {% endif %}
 
           {% if member.role == "creator" %}
             <span class="text-xs bg-purple-500 text-white px-2 rounded-full ml-2">
@@ -198,7 +217,13 @@
         
           {% for relation in available_contacts %}
             <div class="flex justify-between items-center p-1">
-              <span>{{ relation.contact.username }}</span>
+              <span>
+                {% if relation.contact.first_name or relation.contact.last_name %}
+                  {{ relation.contact.first_name }} {{ relation.contact.last_name }} - {{ relation.contact.username }}
+                {% else %}
+                  {{ relation.contact.username }}
+                {% endif %}
+              </span>
               <button onclick="addMember({{ relation.contact.id}})"
                       class="text-emerald-600 text-xs">
                 Add

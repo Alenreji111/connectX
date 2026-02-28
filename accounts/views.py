@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
+from chat.models import Contact
 
 
 @login_required
@@ -49,12 +50,19 @@ def toggle_block(request, username):
 def get_user_profile(request, user_id):
     user = User.objects.get(id=user_id)
     profile = Profile.objects.get(user=user)
+    is_contact = False
+    if request.user.is_authenticated:
+        is_contact = Contact.objects.filter(
+            owner=request.user,
+            contact=user
+        ).exists()
 
     data = {
         "username": user.username,
         "avatar": profile.avatar.url,
         "bio": profile.bio,
         "last_seen": profile.last_seen,
+        "is_contact": is_contact,
     }
 
     return JsonResponse(data)

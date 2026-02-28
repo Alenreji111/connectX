@@ -18,6 +18,7 @@
 </head>
 
 <body class="relative h-screen overflow-hidden text-slate-900 bg-gradient-to-br from-emerald-50 via-white to-emerald-100">
+<div id="current-user" data-user-id="{{ request.user.id }}" class="hidden"></div>
 <div class="pointer-events-none absolute inset-0">
   <div class="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-emerald-200/40 blur-3xl"></div>
   <div class="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-lime-200/40 blur-3xl"></div>
@@ -208,7 +209,11 @@
                 value="{{ relation.contact.id }}"
                 class="accent-emerald-500">
               
-           {{ relation.contact.username }}
+           {% if relation.contact.first_name or relation.contact.last_name %}
+             {{ relation.contact.first_name }} {{ relation.contact.last_name }} - {{ relation.contact.username }}
+           {% else %}
+             {{ relation.contact.username }}
+           {% endif %}
           </label>
 
           {% endfor %}
@@ -244,7 +249,12 @@
     
         <h2 id="profile-name" class="text-xl font-semibold"></h2>
         <p id="profile-bio" class="mt-3 text-slate-600"></p>
-    
+
+        <button id="profile-add-contact"
+                class="mt-4 px-4 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60 disabled:cursor-not-allowed hidden">
+          Add Contact
+        </button>
+
         <button onclick="closeProfile()"
                 class="mt-4 px-4 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">
           Close
@@ -490,6 +500,8 @@ function closeGroupModal(){
         const bioEl = document.getElementById("profile-bio");
         const avatarImg = document.getElementById("profile-avatar");
         const avatarFallback = document.getElementById("profile-avatar-fallback");
+        const addBtn = document.getElementById("profile-add-contact");
+        const currentUserId = document.getElementById("current-user")?.dataset.userId;
 
         nameEl.innerText = data.username;
         bioEl.innerText = data.bio || "";
@@ -507,6 +519,24 @@ function closeGroupModal(){
             avatarFallback.classList.remove("hidden");
         }
 
+        if (addBtn) {
+            if (String(userId) === String(currentUserId)) {
+                addBtn.classList.add("hidden");
+            } else {
+                addBtn.dataset.userId = userId;
+                if (data.is_contact) {
+                    addBtn.innerText = "Added";
+                    addBtn.disabled = true;
+                    addBtn.classList.add("opacity-60", "cursor-not-allowed");
+                } else {
+                    addBtn.innerText = "Add Contact";
+                    addBtn.disabled = false;
+                    addBtn.classList.remove("opacity-60", "cursor-not-allowed");
+                }
+                addBtn.classList.remove("hidden");
+            }
+        }
+
         document.getElementById("profile-modal").classList.remove("hidden");
         document.getElementById("profile-modal").classList.add("flex");
     })
@@ -519,6 +549,26 @@ function closeGroupModal(){
     document.getElementById("profile-modal").classList.add("hidden");
     document.getElementById("profile-modal").classList.remove("flex");
   }  
+</script>
+
+<script>
+  const profileAddBtn = document.getElementById("profile-add-contact");
+  if (profileAddBtn) {
+    profileAddBtn.addEventListener("click", function () {
+      if (profileAddBtn.disabled) return;
+      const userId = profileAddBtn.dataset.userId;
+      if (!userId) return;
+      fetch(`/add-contact/${userId}/`)
+        .then(() => {
+          profileAddBtn.innerText = "Added";
+          profileAddBtn.disabled = true;
+          profileAddBtn.classList.add("opacity-60", "cursor-not-allowed");
+        })
+        .catch((err) => {
+          console.error("Add contact error:", err);
+        });
+    });
+  }
 </script>
 
 <script>

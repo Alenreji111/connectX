@@ -194,7 +194,9 @@ function connectGroupSocket(){
 
                     ${!isMe ? `
                         <div class="text-xs font-semibold text-emerald-700 flex items-center gap-2">
-                            ${data.username}
+                            <span class="chat-username cursor-pointer" data-user-id="${data.sender_id}">
+                                ${data.sender_display || data.username}
+                            </span>
                     
                             ${data.role === "creator" ? 
                                 "<span class='text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full'>Creator</span>" 
@@ -225,7 +227,7 @@ function connectGroupSocket(){
                     <button class="reply-btn text-[11px] mt-1 ${isMe ? "text-emerald-100/90" : "text-slate-500"}"
                         data-id="${data.message_id}"
                         data-text="${data.message.replace(/\"/g, "&quot;")}"
-                        data-user="${data.username}">
+                        data-user="${data.sender_display || data.username}">
                         Reply
                     </button>
 

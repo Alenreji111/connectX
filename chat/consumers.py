@@ -833,6 +833,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             "type": "group_message",
             "message": msg.content,
             "username": msg.sender.username,
+            "sender_display": f"{msg.sender.first_name} {msg.sender.last_name}".strip() or msg.sender.username,
             "role": member.role,
             "sender_id": msg.sender.id,
             "message_id": msg.id,  
