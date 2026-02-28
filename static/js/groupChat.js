@@ -91,6 +91,11 @@ function connectGroupSocket(){
             return;
         }
         
+        if(data.type === "role_updated"){
+            location.reload();
+            return;
+        }
+        
         if(data.type === "member_added"){
             location.reload();   // simple refresh for now
             return;
@@ -295,6 +300,15 @@ window.closeGroupInfo = function(){
 
     modal.classList.remove("flex");
     modal.classList.add("hidden");
+}
+
+window.changeRole = function(userId, newRole){
+
+    APP.groupSocket.send(JSON.stringify({
+        action: "change_role",
+        user_id: userId,
+        role: newRole
+    }));
 }
 
 window.removeMember = function(userId){

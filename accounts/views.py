@@ -45,3 +45,16 @@ def toggle_block(request, username):
         return JsonResponse({"status": "unblocked"})
 
     return JsonResponse({"status": "blocked"})
+
+def get_user_profile(request, user_id):
+    user = User.objects.get(id=user_id)
+    profile = Profile.objects.get(user=user)
+
+    data = {
+        "username": user.username,
+        "avatar": profile.avatar.url,
+        "bio": profile.bio,
+        "last_seen": profile.last_seen,
+    }
+
+    return JsonResponse(data)

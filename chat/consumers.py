@@ -701,6 +701,52 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                 }
             )
             return
+
+        if data.get("action") == "change_role":
+
+            target_id = data.get("user_id")
+            new_role = data.get("role")
+            user = self.scope["user"]
+        
+            # Get current user's role
+            current_member = await sync_to_async(GroupMember.objects.get)(
+                room=self.room,
+                user=user
+            )
+        
+            # Only creator can demote admin
+            if current_member.role not in ["creator", "admin"]:
+                return
+        
+            try:
+                target_member = await sync_to_async(GroupMember.objects.get)(
+                    room=self.room,
+                    user_id=target_id
+                )
+            except GroupMember.DoesNotExist:
+                return
+        
+            # Creator rules
+            if current_member.role == "creator":
+                target_member.role = new_role
+        
+            # Admin rules
+            elif current_member.role == "admin":
+                if target_member.role == "member" and new_role == "admin":
+                    target_member.role = "admin"
+                else:
+                    return
+        
+            await sync_to_async(target_member.save)()
+        
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "role_updated"
+                }
+            )
+        
+            return
         
         if data.get("action") == "remove_member":
 
@@ -804,6 +850,11 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "member_added",
             "user_id": event["user_id"]
+        }))
+
+    async def role_updated(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "role_updated"
         }))
  
 

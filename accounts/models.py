@@ -12,6 +12,8 @@ class Profile(models.Model):
     )
 
     bio = models.CharField(max_length=120, blank=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+
 
     def __str__(self):
         return self.user.username

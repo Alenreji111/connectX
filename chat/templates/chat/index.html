@@ -46,7 +46,8 @@
 
     {% if room.avatar %}
         <img src="{{ room.avatar.url }}"
-             class="w-10 h-10 rounded-full object-cover">
+             class="w-10 h-10 rounded-full object-cover chat-avatar"
+             data-user-id="{{ room.other_user.id }}">
     {% else %}
         <!-- WhatsApp-style group fallback -->
         <div class="w-10 h-10 rounded-full bg-gray-400
@@ -80,7 +81,10 @@
             {% if room.is_group %}
                {{ room.name }}
             {% else %}
-            {{ room.other_user.username }}
+            <span class="chat-username"
+              data-user-id="{{ room.other_user.id }}">
+                {{ room.other_user.username }}
+            </span>
             {% endif %}
         </div>
 
@@ -106,7 +110,6 @@
           +
         </button>
       </div>
-
 
     </div>
 </div>
@@ -168,6 +171,24 @@
 
   </div>
 </div>
+
+ <div id="profile-modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-40">
+
+      <div class="bg-white w-80 p-6 rounded-lg shadow-lg text-center">
+    
+        <img id="profile-avatar"
+             class="w-24 h-24 rounded-full mx-auto mb-3 object-cover">
+    
+        <h2 id="profile-name" class="text-xl font-semibold"></h2>
+        <p id="profile-bio" class="mt-3 text-gray-700"></p>
+    
+        <button onclick="closeProfile()"
+                class="mt-4 px-4 py-1 bg-green-600 text-white rounded">
+          Close
+        </button>
+    
+      </div>
+   </div>
 
 
 <script>
@@ -302,7 +323,42 @@ function closeGroupModal(){
 <script src="{% static 'js/privateChat.js' %}"></script>
 <script src="{% static 'js/groupChat.js' %}"></script>
 
+<script>
+  document.addEventListener("click", function(e) {
+  
+      if (e.target.classList.contains("chat-avatar") ||
+          e.target.classList.contains("chat-username")) {
+  
+          e.stopPropagation(); // 🔥 prevent openChat click
+  
+          const userId = e.target.dataset.userId;
+          openProfile(userId);
+      }
+  });
+  
+  function openProfile(userId) {
 
+    fetch(`/accounts/profile/${userId}/`)
+    .then(response => response.json())
+    .then(data => {
+
+        document.getElementById("profile-name").innerText = data.username;
+        document.getElementById("profile-bio").innerText = data.bio || "";
+        document.getElementById("profile-avatar").src = data.avatar;
+
+        document.getElementById("profile-modal").classList.remove("hidden");
+        document.getElementById("profile-modal").classList.add("flex");
+    })
+    .catch(error => {
+        console.error("Profile fetch error:", error);
+    });
+  }
+
+  function closeProfile(){
+    document.getElementById("profile-modal").classList.add("hidden");
+    document.getElementById("profile-modal").classList.remove("flex");
+  }  
+</script>
 
 
 </body>

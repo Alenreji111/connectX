@@ -142,7 +142,7 @@
 
           {% if member.role == "creator" %}
             <span class="text-xs bg-purple-500 text-white px-2 rounded ml-2">
-              Creator
+              Admin
             </span>
           {% elif member.role == "admin" %}
             <span class="text-xs bg-blue-500 text-white px-2 rounded ml-2">
@@ -152,13 +152,30 @@
         </div>
 
         {% if user_role == "creator" or user_role == "admin" %}
-          {% if member.user != request.user %}
+        {% if member.user != request.user %}
+      
+          <div class="flex gap-2">
+      
+            {% if member.role == "member" %}
+              <button onclick="changeRole({{ member.user.id }}, 'admin')"
+                      class="text-blue-500 text-xs">
+                Make Admin
+              </button>
+            {% elif member.role == "admin" and user_role == "creator" %}
+              <button onclick="changeRole({{ member.user.id }}, 'member')"
+                      class="text-yellow-600 text-xs">
+                Remove Admin
+              </button>
+            {% endif %}
+      
             <button onclick="removeMember({{ member.user.id }})"
                     class="text-red-500 text-xs">
               Remove
             </button>
-
-          {% endif %}
+      
+          </div>
+      
+        {% endif %}
         {% endif %}
 
       </div>
