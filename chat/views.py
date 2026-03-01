@@ -16,6 +16,14 @@ from accounts.models import Block
 
 
 # Create your views here
+def _classify_media(uploaded_file):
+    content_type = (uploaded_file.content_type or "").lower()
+    if content_type.startswith("image/"):
+        return "image"
+    if content_type.startswith("video/"):
+        return "video"
+    return None
+
 class StyledUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
@@ -346,7 +354,7 @@ def load_private_chat(request, username):
 @login_required
 def message_audio(request, message_id):
     msg = get_object_or_404(Message, id=message_id)
-    if not msg.audio:
+    if not msg.audio or msg.is_deleted:
         raise Http404("Audio not found")
 
     is_member = msg.room.users.filter(id=request.user.id).exists()
@@ -355,6 +363,32 @@ def message_audio(request, message_id):
 
     content_type, _ = mimetypes.guess_type(msg.audio.name)
     return FileResponse(msg.audio.open("rb"), content_type=content_type or "application/octet-stream")
+
+@login_required
+def message_image(request, message_id):
+    msg = get_object_or_404(Message, id=message_id)
+    if not msg.image or msg.is_deleted:
+        raise Http404("Image not found")
+
+    is_member = msg.room.users.filter(id=request.user.id).exists()
+    if not is_member:
+        return HttpResponseForbidden("Not allowed")
+
+    content_type, _ = mimetypes.guess_type(msg.image.name)
+    return FileResponse(msg.image.open("rb"), content_type=content_type or "application/octet-stream")
+
+@login_required
+def message_video(request, message_id):
+    msg = get_object_or_404(Message, id=message_id)
+    if not msg.video or msg.is_deleted:
+        raise Http404("Video not found")
+
+    is_member = msg.room.users.filter(id=request.user.id).exists()
+    if not is_member:
+        return HttpResponseForbidden("Not allowed")
+
+    content_type, _ = mimetypes.guess_type(msg.video.name)
+    return FileResponse(msg.video.open("rb"), content_type=content_type or "application/octet-stream")
 
 @login_required
 def upload_private_audio(request, user_id):
@@ -427,6 +461,85 @@ def upload_private_audio(request, user_id):
     return JsonResponse({"status": "ok", "message_id": msg.id})
 
 @login_required
+def upload_private_media(request, user_id):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid request")
+
+    media_file = request.FILES.get("file")
+    if not media_file:
+        return HttpResponseBadRequest("No media file")
+
+    media_kind = _classify_media(media_file)
+    if not media_kind:
+        return HttpResponseBadRequest("Unsupported media type")
+
+    other_user = get_object_or_404(User, id=user_id)
+    room = get_private_room(request.user, other_user)
+    if room is None:
+        return HttpResponseForbidden("Invalid private chat")
+
+    is_blocked = Block.objects.filter(blocker=other_user, blocked=request.user).exists()
+    if is_blocked:
+        return HttpResponseForbidden("Blocked")
+
+    content_label = "Photo" if media_kind == "image" else "Video"
+    msg = Message.objects.create(
+        sender=request.user,
+        receiver=other_user,
+        room=room,
+        content=content_label,
+        image=media_file if media_kind == "image" else None,
+        video=media_file if media_kind == "video" else None,
+        is_read=False,
+        is_delivered=False
+    )
+
+    Room.objects.filter(id=room.id).update(last_activity=timezone.now())
+
+    media_url = request.build_absolute_uri(
+        reverse("message_image" if media_kind == "image" else "message_video", args=[msg.id])
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"room_{room.id}",
+        {
+            "type": "private_message",
+            "message": msg.content,
+            "image_url": media_url if media_kind == "image" else None,
+            "video_url": media_url if media_kind == "video" else None,
+            "username": request.user.username,
+            "message_id": msg.id,
+            "reply_to": None,
+        }
+    )
+
+    for user in room.users.all():
+        unread_count = Message.objects.filter(
+            room=room,
+            is_read=False
+        ).exclude(sender=user).count()
+
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "unread_notify",
+                "room_id": room.id,
+                "count": unread_count
+            }
+        )
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "last_message",
+                "room_id": room.id,
+                "preview": msg.content
+            }
+        )
+
+    return JsonResponse({"status": "ok", "message_id": msg.id})
+
+@login_required
 def upload_group_audio(request, room_id):
     if request.method != "POST":
         return HttpResponseBadRequest("Invalid request")
@@ -461,6 +574,71 @@ def upload_group_audio(request, room_id):
             "audio_url": request.build_absolute_uri(
                 reverse("message_audio", args=[msg.id])
             ),
+            "username": request.user.username,
+            "sender_display": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+            "role": role,
+            "sender_id": request.user.id,
+            "message_id": msg.id,
+            "reply_to": None,
+        }
+    )
+
+    for user in room.users.all():
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user.id}",
+            {
+                "type": "last_message",
+                "room_id": room.id,
+                "preview": msg.content
+            }
+        )
+
+    return JsonResponse({"status": "ok", "message_id": msg.id})
+
+@login_required
+def upload_group_media(request, room_id):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid request")
+
+    media_file = request.FILES.get("file")
+    if not media_file:
+        return HttpResponseBadRequest("No media file")
+
+    media_kind = _classify_media(media_file)
+    if not media_kind:
+        return HttpResponseBadRequest("Unsupported media type")
+
+    room = get_object_or_404(Room, id=room_id, is_group=True)
+    is_member = room.users.filter(id=request.user.id).exists()
+    if not is_member:
+        return HttpResponseForbidden("Not allowed")
+
+    content_label = "Photo" if media_kind == "image" else "Video"
+    msg = Message.objects.create(
+        sender=request.user,
+        room=room,
+        content=content_label,
+        image=media_file if media_kind == "image" else None,
+        video=media_file if media_kind == "video" else None
+    )
+
+    Room.objects.filter(id=room.id).update(last_activity=timezone.now())
+
+    membership = GroupMember.objects.filter(room=room, user=request.user).first()
+    role = membership.role if membership else "member"
+
+    media_url = request.build_absolute_uri(
+        reverse("message_image" if media_kind == "image" else "message_video", args=[msg.id])
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"group_{room.id}",
+        {
+            "type": "group_message",
+            "message": msg.content,
+            "image_url": media_url if media_kind == "image" else None,
+            "video_url": media_url if media_kind == "video" else None,
             "username": request.user.username,
             "sender_display": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
             "role": role,

@@ -79,6 +79,20 @@ function openCxPrompt({ title, message, value, confirmText, onConfirm }) {
     });
 }
 
+function initGroupMediaPicker() {
+    const mediaBtn = document.getElementById("group-media-btn");
+    const mediaInput = document.getElementById("group-media-input");
+
+    if (!mediaBtn || !mediaInput) return;
+
+    mediaBtn.onclick = () => mediaInput.click();
+    mediaInput.onchange = () => {
+        const file = mediaInput.files && mediaInput.files[0];
+        if (file) sendGroupMedia(file);
+        mediaInput.value = "";
+    };
+}
+
 function connectGroupSocket(){
 
     const data = document.getElementById("group-chat-data");
@@ -114,6 +128,12 @@ function connectGroupSocket(){
                 }
             });
         }
+
+        if (window.initMediaDownloads) {
+            window.initMediaDownloads();
+        }
+
+        initGroupMediaPicker();
     };
 
     APP.groupSocket.onmessage = function(e){
@@ -186,11 +206,55 @@ function connectGroupSocket(){
         if(!box) return;
 
         const isMe = data.sender_id == currentUserId;
+        const isMedia = Boolean(data.audio_url || data.image_url || data.video_url);
+        let messageBody = data.message || "";
+        if (data.image_url) {
+            messageBody = `
+              <div class="cx-media-wrap relative"
+                   data-media-id="${data.message_id}"
+                   data-media-type="image"
+                   data-media-url="${data.image_url}">
+                <img src="${data.image_url}"
+                     class="cx-media-item cx-image-preview cursor-zoom-in w-full max-w-[240px] sm:max-w-[300px] h-auto rounded-xl border border-slate-200/70 blur-sm" />
+                <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+                  <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+                    Download
+                  </button>
+                  <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+                </div>
+              </div>
+            `;
+        } else if (data.video_url) {
+            messageBody = `
+              <div class="cx-media-wrap relative"
+                   data-media-id="${data.message_id}"
+                   data-media-type="video"
+                   data-media-url="${data.video_url}">
+                <div class="cx-media-video-placeholder w-full max-w-[240px] sm:max-w-[300px] aspect-video rounded-xl border border-slate-200/70 bg-slate-900/80 text-white text-xs font-semibold flex items-center justify-center">
+                  Video
+                </div>
+                <video class="cx-media-video hidden w-full max-w-[240px] sm:max-w-[300px] rounded-xl border border-slate-200/70"></video>
+                <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+                  <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+                    Download
+                  </button>
+                  <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+                </div>
+              </div>
+            `;
+        } else if (data.audio_url) {
+            messageBody = `
+              <audio controls class="w-full max-w-[240px] sm:max-w-[300px]">
+                <source src="${data.audio_url}">
+              </audio>
+            `;
+        }
 
         const messageHTML = `
             <div class="flex ${isMe ? "justify-end" : "justify-start"}">
                 <div id="msg-${data.message_id}" 
                      data-audio="${data.audio_url ? "true" : "false"}"
+                     data-media="${isMedia ? "true" : "false"}"
                      class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm ${
                         isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"
                      }">
@@ -222,11 +286,7 @@ function connectGroupSocket(){
                     ` : ""}
 
                     <div class="msg-text text-[15px] leading-6">
-                        ${data.audio_url ? `
-                          <audio controls class="w-56">
-                            <source src="${data.audio_url}">
-                          </audio>
-                        ` : data.message}
+                        ${messageBody}
                     </div>
 
                     <div class="text-[11px] text-slate-500 mt-2">now</div>
@@ -239,7 +299,7 @@ function connectGroupSocket(){
                     </button>
 
                     ${isMe ? `
-                    ${data.audio_url ? "" : `
+                    ${isMedia ? "" : `
                     <button onclick="groupEditMessage(${data.message_id}, '${data.message.replace(/'/g, "\\'")}')"
                             class="text-blue-200 text-[11px] ml-2">
                       Edit
@@ -261,6 +321,10 @@ function connectGroupSocket(){
 
         if (window.bumpRoom && APP.activeRoomId) {
             window.bumpRoom(APP.activeRoomId);
+        }
+        if (window.initMediaDownloads) {
+            const wrapper = document.getElementById("msg-" + data.message_id);
+            if (wrapper) window.initMediaDownloads(wrapper);
         }
     };
 }
@@ -327,6 +391,22 @@ function sendGroupAudio(blob) {
         body: formData,
     }).catch((err) => {
         console.error("Audio upload error:", err);
+    });
+}
+
+function sendGroupMedia(file) {
+    if (!APP.groupRoomId) return;
+    const formData = new FormData();
+    formData.append("file", file, file.name || "upload");
+
+    fetch(`/group/${APP.groupRoomId}/media/`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRFToken(),
+        },
+        body: formData,
+    }).catch((err) => {
+        console.error("Media upload error:", err);
     });
 }
 

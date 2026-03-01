@@ -83,6 +83,148 @@ function openCxPrompt({ title, message, value, confirmText, onConfirm }) {
     if (e.key === "Enter") submit();
   });
 }
+
+function initPrivateMediaPicker() {
+  const mediaBtn = document.getElementById("media-btn");
+  const mediaInput = document.getElementById("media-input");
+
+  if (!mediaBtn || !mediaInput) return;
+
+  mediaBtn.onclick = () => mediaInput.click();
+  mediaInput.onchange = () => {
+    const file = mediaInput.files && mediaInput.files[0];
+    if (file) sendPrivateMedia(file);
+    mediaInput.value = "";
+  };
+}
+
+function getMediaDownloadState() {
+  try {
+    return JSON.parse(localStorage.getItem("cx_media_downloads") || "{}");
+  } catch (err) {
+    return {};
+  }
+}
+
+function setMediaDownloadState(state) {
+  try {
+    localStorage.setItem("cx_media_downloads", JSON.stringify(state || {}));
+  } catch (err) {
+    console.error("Media download storage error:", err);
+  }
+}
+
+function markMediaDownloaded(messageId) {
+  const state = getMediaDownloadState();
+  state[String(messageId)] = true;
+  setMediaDownloadState(state);
+}
+
+function isMediaDownloaded(messageId) {
+  const state = getMediaDownloadState();
+  return Boolean(state[String(messageId)]);
+}
+
+function setMediaReady(wrap, objectUrl) {
+  if (!wrap) return;
+  const overlay = wrap.querySelector(".cx-media-overlay");
+  const img = wrap.querySelector(".cx-media-item");
+  const video = wrap.querySelector(".cx-media-video");
+  const placeholder = wrap.querySelector(".cx-media-video-placeholder");
+
+  wrap.classList.add("cx-media-ready");
+  if (overlay) overlay.classList.add("hidden");
+  if (img) {
+    img.classList.remove("blur-sm");
+  }
+  if (video) {
+    if (objectUrl) {
+      video.src = objectUrl;
+    } else if (!video.src) {
+      video.src = wrap.dataset.mediaUrl || "";
+    }
+    video.controls = true;
+    video.classList.remove("hidden");
+  }
+  if (placeholder) placeholder.classList.add("hidden");
+}
+
+function setMediaLocked(wrap) {
+  if (!wrap) return;
+  const overlay = wrap.querySelector(".cx-media-overlay");
+  const img = wrap.querySelector(".cx-media-item");
+  const video = wrap.querySelector(".cx-media-video");
+
+  wrap.classList.remove("cx-media-ready");
+  if (overlay) overlay.classList.remove("hidden");
+  if (img) img.classList.add("blur-sm");
+  if (video) {
+    video.controls = false;
+    video.classList.add("hidden");
+  }
+}
+
+async function downloadMedia(wrap) {
+  if (!wrap) return;
+  const messageId = wrap.dataset.mediaId;
+  const url = wrap.dataset.mediaUrl;
+  const type = wrap.dataset.mediaType;
+  const overlay = wrap.querySelector(".cx-media-overlay");
+  const btn = wrap.querySelector(".cx-media-download");
+  const spinner = wrap.querySelector(".cx-media-spinner");
+
+  if (!url || !messageId) return;
+
+  if (btn) btn.classList.add("hidden");
+  if (spinner) spinner.classList.remove("hidden");
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    setMediaReady(wrap, objectUrl);
+    markMediaDownloaded(messageId);
+  } catch (err) {
+    console.error("Media download error:", err);
+    if (btn) btn.classList.remove("hidden");
+  } finally {
+    if (spinner) spinner.classList.add("hidden");
+    if (overlay && wrap.classList.contains("cx-media-ready")) {
+      overlay.classList.add("hidden");
+    }
+  }
+}
+
+function initMediaDownloads(root = document) {
+  const wraps = root.querySelectorAll
+    ? root.querySelectorAll(".cx-media-wrap")
+    : [];
+
+  wraps.forEach((wrap) => {
+    if (wrap.dataset.bound === "true") return;
+    wrap.dataset.bound = "true";
+
+    const messageId = wrap.dataset.mediaId;
+    const btn = wrap.querySelector(".cx-media-download");
+
+    if (isMediaDownloaded(messageId)) {
+      setMediaReady(wrap);
+    } else {
+      setMediaLocked(wrap);
+    }
+
+    if (btn) {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        downloadMedia(wrap);
+      });
+    }
+  });
+}
+
+window.initMediaDownloads = initMediaDownloads;
 function connectSocket() {
   const data = document.getElementById("chat-data");
 
@@ -100,6 +242,8 @@ function connectSocket() {
   APP.otherUser = otherUser;
   APP.otherUserId = otherUserId;
   APP.activeRoomId = roomId;
+  initPrivateMediaPicker();
+  initMediaDownloads();
 
   if (APP.activeRoom === roomName) {
     console.log("Already connected to this room");
@@ -260,9 +404,54 @@ function openNewSocket(roomName) {
     const wrapper = document.createElement("div");
     wrapper.className = `flex ${isMe ? "justify-end" : "justify-start"}`;
 
+    const isMedia = Boolean(data.audio_url || data.image_url || data.video_url);
+    let messageBody = data.message || "";
+    if (data.image_url) {
+      messageBody = `
+        <div class="cx-media-wrap relative"
+             data-media-id="${data.message_id}"
+             data-media-type="image"
+             data-media-url="${data.image_url}">
+          <img src="${data.image_url}"
+               class="cx-media-item cx-image-preview cursor-zoom-in w-full max-w-[240px] sm:max-w-[300px] h-auto rounded-xl border border-slate-200/70 blur-sm" />
+          <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+            <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+              Download
+            </button>
+            <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+          </div>
+        </div>
+      `;
+    } else if (data.video_url) {
+      messageBody = `
+        <div class="cx-media-wrap relative"
+             data-media-id="${data.message_id}"
+             data-media-type="video"
+             data-media-url="${data.video_url}">
+          <div class="cx-media-video-placeholder w-full max-w-[240px] sm:max-w-[300px] aspect-video rounded-xl border border-slate-200/70 bg-slate-900/80 text-white text-xs font-semibold flex items-center justify-center">
+            Video
+          </div>
+          <video class="cx-media-video hidden w-full max-w-[240px] sm:max-w-[300px] rounded-xl border border-slate-200/70"></video>
+          <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+            <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+              Download
+            </button>
+            <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+          </div>
+        </div>
+      `;
+    } else if (data.audio_url) {
+      messageBody = `
+        <audio controls class="w-full max-w-[240px] sm:max-w-[300px]">
+          <source src="${data.audio_url}">
+        </audio>
+      `;
+    }
+
     wrapper.innerHTML = `
     <div id="msg-${data.message_id}"
          data-audio="${data.audio_url ? "true" : "false"}"
+         data-media="${isMedia ? "true" : "false"}"
          class="px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm
          ${isMe ? "bg-emerald-600 text-white" : "bg-white border border-slate-200/70 text-slate-900"}">
 
@@ -283,11 +472,7 @@ function openNewSocket(roomName) {
 
         <!-- MESSAGE TEXT -->
         <div class="msg-text text-[15px] leading-6">
-            ${data.audio_url ? `
-                <audio controls class="w-56">
-                  <source src="${data.audio_url}">
-                </audio>
-            ` : data.message}
+            ${messageBody}
         </div>
 
         <!-- TIME + TICK + BUTTONS -->
@@ -317,7 +502,7 @@ function openNewSocket(roomName) {
             ${
               isMe
                 ? `
-                    ${data.audio_url ? "" : `
+                    ${isMedia ? "" : `
                     <button 
                         class="edit-btn text-blue-200 ml-1 text-[11px]"
                         data-id="${data.message_id}"
@@ -342,6 +527,7 @@ console.log("PRIVATE MESSAGE EVENT:", data);
 
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
+    initMediaDownloads(wrapper);
 
     if (window.bumpRoom && APP.activeRoomId) {
       window.bumpRoom(APP.activeRoomId);
@@ -409,6 +595,22 @@ function sendPrivateAudio(blob) {
     body: formData,
   }).catch((err) => {
     console.error("Audio upload error:", err);
+  });
+}
+
+function sendPrivateMedia(file) {
+  if (!APP.otherUserId) return;
+  const formData = new FormData();
+  formData.append("file", file, file.name || "upload");
+
+  fetch(`/private-media/${APP.otherUserId}/`, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": getCSRFToken(),
+    },
+    body: formData,
+  }).catch((err) => {
+    console.error("Media upload error:", err);
   });
 }
 
@@ -555,6 +757,92 @@ function showReactionPopup(emoji, users) {
   document.body.appendChild(sheet);
 }
 
+function ensureImageModal() {
+  if (document.getElementById("cx-image-modal")) return;
+
+  const modal = document.createElement("div");
+  modal.id = "cx-image-modal";
+  modal.className =
+    "fixed inset-0 z-50 hidden items-center justify-center bg-black/80";
+  modal.innerHTML = `
+    <div class="absolute inset-0" data-role="backdrop"></div>
+    <div class="relative max-w-[90vw] max-h-[90vh]">
+      <img id="cx-image-modal-img" src="" class="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl transition-transform duration-150" />
+      <div class="absolute top-3 right-3 flex gap-2">
+        <button id="cx-zoom-out" class="w-9 h-9 rounded-full bg-white/10 text-white text-sm">-</button>
+        <button id="cx-zoom-in" class="w-9 h-9 rounded-full bg-white/10 text-white text-sm">+</button>
+        <button id="cx-zoom-close" class="w-9 h-9 rounded-full bg-white/10 text-white text-sm">X</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const img = modal.querySelector("#cx-image-modal-img");
+  const close = () => {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+    img.style.transform = "scale(1)";
+    img.dataset.scale = "1";
+  };
+
+  modal.querySelector("#cx-zoom-close").onclick = close;
+  modal.querySelector("[data-role='backdrop']").onclick = close;
+  modal.addEventListener("wheel", (e) => {
+    if (!img.src) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const current = parseFloat(img.dataset.scale || "1");
+    const next = Math.min(4, Math.max(1, current + delta));
+    img.dataset.scale = String(next);
+    img.style.transform = `scale(${next})`;
+  }, { passive: false });
+
+  modal.querySelector("#cx-zoom-in").onclick = () => {
+    const current = parseFloat(img.dataset.scale || "1");
+    const next = Math.min(4, current + 0.2);
+    img.dataset.scale = String(next);
+    img.style.transform = `scale(${next})`;
+  };
+
+  modal.querySelector("#cx-zoom-out").onclick = () => {
+    const current = parseFloat(img.dataset.scale || "1");
+    const next = Math.max(1, current - 0.2);
+    img.dataset.scale = String(next);
+    img.style.transform = `scale(${next})`;
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") close();
+  });
+}
+
+function openImagePreview(src) {
+  ensureImageModal();
+  const modal = document.getElementById("cx-image-modal");
+  const img = document.getElementById("cx-image-modal-img");
+  if (!modal || !img) return;
+  img.src = src;
+  img.dataset.scale = "1";
+  img.style.transform = "scale(1)";
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+document.addEventListener("click", function (e) {
+  const img = e.target.closest(".cx-image-preview");
+  if (!img) return;
+  e.preventDefault();
+
+  const wrap = img.closest(".cx-media-wrap");
+  if (wrap && !wrap.classList.contains("cx-media-ready")) {
+    downloadMedia(wrap);
+    return;
+  }
+
+  openImagePreview(img.src);
+});
+
 function clearReply() {
   APP.replyingTo = null;
   document.getElementById("reply-preview").classList.add("hidden");
@@ -629,7 +917,7 @@ document.addEventListener("click", function (e) {
     console.log("Bubble not found");
     return;
   }
-  if (bubble.dataset.audio === "true" || bubble.querySelector("audio")) {
+  if (bubble.dataset.media === "true" || bubble.querySelector("audio, img, video")) {
     return;
   }
 

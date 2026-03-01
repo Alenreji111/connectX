@@ -9,6 +9,18 @@ from datetime import timedelta
 from accounts.models import Block
 
 
+def _purge_message_media(msg):
+    if msg.audio:
+        msg.audio.delete(save=False)
+        msg.audio = None
+    if msg.image:
+        msg.image.delete(save=False)
+        msg.image = None
+    if msg.video:
+        msg.video.delete(save=False)
+        msg.video = None
+
+
 class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
@@ -292,12 +304,13 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 if msg.sender_id != user.id:
                     return
 
-                await sync_to_async(
-                     Message.objects.filter(id=message_id).update
-                    )(
-                    is_deleted=True,
-                    content="This message was deleted"
-                )
+                def _delete_message():
+                    _purge_message_media(msg)
+                    msg.is_deleted = True
+                    msg.content = "This message was deleted"
+                    msg.save(update_fields=["is_deleted", "content", "audio", "image", "video"])
+
+                await sync_to_async(_delete_message)()
 
         # 🔥 broadcast delete to room
                 await self.channel_layer.group_send(
@@ -519,6 +532,8 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "message_id": event["message_id"],
             "reply_to": event.get("reply_to"),
             "audio_url": event.get("audio_url"),
+            "image_url": event.get("image_url"),
+            "video_url": event.get("video_url"),
         }))
 
     # ⭐ MARK AS DELIVERED INSTANTLY
@@ -626,12 +641,13 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
                     if msg.is_deleted:
                         return
     
-                    await sync_to_async(
-                            Message.objects.filter(id=message_id).update
-                        )(
-                        is_deleted=True,
-                        content="This message was deleted"
-                    )
+                    def _delete_message():
+                        _purge_message_media(msg)
+                        msg.is_deleted = True
+                        msg.content = "This message was deleted"
+                        msg.save(update_fields=["is_deleted", "content", "audio", "image", "video"])
+
+                    await sync_to_async(_delete_message)()
 
         # 🔥 broadcast delete to room
                 await self.channel_layer.group_send(

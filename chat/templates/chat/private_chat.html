@@ -99,7 +99,7 @@
   <!-- MESSAGES -->
   <div
     id="messages"
-    class="flex-1 min-h-0 overflow-y-auto p-5 pb-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3">
+    class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 pb-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col gap-3">
     {% for msg in messages %}
 
     <div
@@ -108,6 +108,7 @@
       <div id="msg-{{ msg.id }}"
          data-deleted="{% if msg.is_deleted %}true{% else %}false{% endif %}"
          data-audio="{% if msg.audio %}true{% else %}false{% endif %}"
+         data-media="{% if msg.audio or msg.image or msg.video %}true{% else %}false{% endif %}"
         class="relative px-4 py-3 rounded-2xl max-w-[75%] sm:max-w-[65%] shadow-sm {% if msg.sender.id == request.user.id %}bg-emerald-600 text-white{% else %}bg-white border border-slate-200/70 text-slate-900{% endif %}">
           {% if msg.reply_to %}
            <div class="reply-preview bg-emerald-50 text-xs p-2 rounded-lg mb-1 border-l-4 border-emerald-500 text-slate-700"
@@ -122,6 +123,10 @@
                <div class="truncate">
                  {% if msg.reply_to.audio %}
                    🎤 Audio message
+                 {% elif msg.reply_to.image %}
+                   Photo
+                 {% elif msg.reply_to.video %}
+                   Video
                  {% else %}
                    {{ msg.reply_to.content }}
                  {% endif %}
@@ -131,8 +136,38 @@
         <div class="msg-text text-[15px] leading-6">
         {% if msg.is_deleted %}
           <i class="text-gray-400">This message was deleted</i>
+        {% elif msg.image %}
+          <div class="cx-media-wrap relative"
+               data-media-id="{{ msg.id }}"
+               data-media-type="image"
+               data-media-url="{% url 'message_image' msg.id %}">
+            <img src="{% url 'message_image' msg.id %}"
+                 class="cx-media-item cx-image-preview cursor-zoom-in w-full max-w-[240px] sm:max-w-[300px] h-auto rounded-xl border border-slate-200/70 blur-sm" />
+            <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+              <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+                Download
+              </button>
+              <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+            </div>
+          </div>
+        {% elif msg.video %}
+          <div class="cx-media-wrap relative"
+               data-media-id="{{ msg.id }}"
+               data-media-type="video"
+               data-media-url="{% url 'message_video' msg.id %}">
+            <div class="cx-media-video-placeholder w-full max-w-[240px] sm:max-w-[300px] aspect-video rounded-xl border border-slate-200/70 bg-slate-900/80 text-white text-xs font-semibold flex items-center justify-center">
+              Video
+            </div>
+            <video class="cx-media-video hidden w-full max-w-[240px] sm:max-w-[300px] rounded-xl border border-slate-200/70"></video>
+            <div class="cx-media-overlay absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center">
+              <button class="cx-media-download px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold">
+                Download
+              </button>
+              <div class="cx-media-spinner hidden w-8 h-8 rounded-full border-2 border-white/60 border-t-white animate-spin"></div>
+            </div>
+          </div>
         {% elif msg.audio %}
-          <audio controls class="w-56">
+          <audio controls class="w-full max-w-[240px] sm:max-w-[300px]">
             <source src="{% url 'message_audio' msg.id %}">
           </audio>
         {% else %}
@@ -182,7 +217,7 @@
            </button>
            {% endif %}
 
-          {% if msg.sender.id == request.user.id and not msg.is_deleted and not msg.audio %}
+          {% if msg.sender.id == request.user.id and not msg.is_deleted and not msg.audio and not msg.image and not msg.video %}
           <button class="edit-btn text-blue-200 text-[11px]"
                   data-id="{{ msg.id }}">
             Edit
@@ -231,6 +266,17 @@
         class="flex-1 bg-transparent outline-none text-sm placeholder-slate-400"
         placeholder="Type a message..."
       />
+
+      <input id="media-input" type="file" accept="image/*,video/*" class="hidden" />
+
+      <button
+        id="media-btn"
+        class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center font-semibold"
+        title="Attach"
+        type="button"
+      >
+        +
+      </button>
 
       <span id="record-indicator"
         class="hidden text-xs text-red-500 font-semibold flex items-center gap-1">

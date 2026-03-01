@@ -23,7 +23,7 @@ def profile(request):
 
         profile.save()
 
-        return redirect("home")
+        return redirect(request.META.get("HTTP_REFERER", "home"))
 
     template = "accounts/profile.html"
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
