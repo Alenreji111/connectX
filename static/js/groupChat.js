@@ -93,6 +93,61 @@ function initGroupMediaPicker() {
     };
 }
 
+function initGroupAvatarForm() {
+    const form = document.getElementById("group-avatar-form");
+    if (!form) return;
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const action = form.getAttribute("action");
+        if (!action) return;
+
+        try {
+            const res = await fetch(action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCSRFToken(),
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error("Avatar update failed");
+            const data = await res.json();
+            if (!data.avatar_url) return;
+
+            const headerImg = document.getElementById("group-avatar-header");
+            const headerFallback = document.getElementById("group-avatar-header-fallback");
+            const modalImg = document.getElementById("group-avatar-modal");
+            const modalFallback = document.getElementById("group-avatar-modal-fallback");
+
+            if (headerImg) {
+                headerImg.src = data.avatar_url;
+                headerImg.classList.remove("hidden");
+            }
+            if (headerFallback) headerFallback.classList.add("hidden");
+            if (modalImg) {
+                modalImg.src = data.avatar_url;
+                modalImg.classList.remove("hidden");
+            }
+            if (modalFallback) modalFallback.classList.add("hidden");
+
+            if (APP.groupRoomId) {
+                const listImg = document.getElementById(`group-room-avatar-${APP.groupRoomId}`);
+                const listFallback = document.getElementById(`group-room-avatar-fallback-${APP.groupRoomId}`);
+                if (listImg) {
+                    listImg.src = data.avatar_url;
+                    listImg.classList.remove("hidden");
+                }
+                if (listFallback) listFallback.classList.add("hidden");
+            }
+        } catch (err) {
+            console.error("Group avatar update error:", err);
+        }
+    });
+}
+
 function connectGroupSocket(){
 
     const data = document.getElementById("group-chat-data");
@@ -134,6 +189,7 @@ function connectGroupSocket(){
         }
 
         initGroupMediaPicker();
+        initGroupAvatarForm();
     };
 
     APP.groupSocket.onmessage = function(e){

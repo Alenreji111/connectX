@@ -23,14 +23,13 @@
             >
               Back
             </button>
-            {% if room.avatar %}
-              <img src="{{ room.avatar.url }}"
-                   class="w-10 h-10 rounded-full object-cover">
-            {% else %}
-              <div class="w-10 h-10 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-lg">
-                👥
-              </div>
-            {% endif %}
+            <img id="group-avatar-header"
+                 src="{% if room.avatar %}{{ room.avatar.url }}{% endif %}"
+                 class="w-10 h-10 rounded-full object-cover {% if not room.avatar %}hidden{% endif %}">
+            <div id="group-avatar-header-fallback"
+                 class="w-10 h-10 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-lg {% if room.avatar %}hidden{% endif %}">
+              👥
+            </div>
             <h2 class="font-semibold text-lg text-slate-900">
               {{ room.name }}
             </h2>
@@ -179,15 +178,13 @@
 
     <!-- Avatar -->
     <div class="flex flex-col items-center gap-2 mb-4">
-      {% if room.avatar %}
-        <img src="{{ room.avatar.url }}"
-             class="w-24 h-24 rounded-full object-cover">
-      {% else %}
-        <div class="w-24 h-24 rounded-full bg-gray-400
-                    flex items-center justify-center text-white text-3xl">
-          👥
-        </div>
-      {% endif %}
+      <img id="group-avatar-modal"
+           src="{% if room.avatar %}{{ room.avatar.url }}{% endif %}"
+           class="w-24 h-24 rounded-full object-cover {% if not room.avatar %}hidden{% endif %}">
+      <div id="group-avatar-modal-fallback"
+           class="w-24 h-24 rounded-full bg-gray-400 flex items-center justify-center text-white text-3xl {% if room.avatar %}hidden{% endif %}">
+        👥
+      </div>
 
       <div class="font-semibold text-lg">
         {{ room.name }}
@@ -196,6 +193,17 @@
       <div class="text-sm text-slate-500">
         Your role: {{ user_role|title }}
       </div>
+
+      {% if user_role == "creator" or user_role == "admin" %}
+        <form id="group-avatar-form" method="POST" action="{% url 'group_avatar' room.id %}" enctype="multipart/form-data" class="mt-2 flex flex-col items-center gap-2">
+          {% csrf_token %}
+          <input type="file" name="avatar" accept="image/*"
+                 class="block text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-emerald-700">
+          <button class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">
+            Update Avatar
+          </button>
+        </form>
+      {% endif %}
     </div>
 
     <!-- Members -->

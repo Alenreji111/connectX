@@ -110,16 +110,14 @@
         <!-- Avatar -->
    {% if room.is_group %}
 
-    {% if room.avatar %}
-        <img src="{{ room.avatar.url }}"
-             class="w-10 h-10 rounded-full object-cover">
-    {% else %}
+        <img id="group-room-avatar-{{ room.id }}"
+             src="{% if room.avatar %}{{ room.avatar.url }}{% endif %}"
+             class="w-10 h-10 rounded-full object-cover {% if not room.avatar %}hidden{% endif %}">
         <!-- WhatsApp-style group fallback -->
-        <div class="w-10 h-10 rounded-full bg-gray-400
-                    flex items-center justify-center text-white text-lg">
+        <div id="group-room-avatar-fallback-{{ room.id }}"
+             class="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white text-lg {% if room.avatar %}hidden{% endif %}">
             👥
         </div>
-    {% endif %}
 
 {% else %}
 

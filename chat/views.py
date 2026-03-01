@@ -245,6 +245,32 @@ def group_chat(request, room_id):
         "available_contacts": available_contacts
     })
 
+@login_required
+def update_group_avatar(request, room_id):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid request")
+
+    room = get_object_or_404(Room, id=room_id, is_group=True)
+    try:
+        membership = GroupMember.objects.get(room=room, user=request.user)
+    except GroupMember.DoesNotExist:
+        return HttpResponseForbidden("Not allowed")
+
+    if membership.role not in ["creator", "admin"]:
+        return HttpResponseForbidden("Not allowed")
+
+    avatar = request.FILES.get("avatar")
+    if not avatar:
+        return HttpResponseBadRequest("No avatar provided")
+
+    room.avatar = avatar
+    room.save(update_fields=["avatar"])
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": "ok", "avatar_url": room.avatar.url})
+
+    return redirect("group_chat", room_id=room.id)
+
 def unread_count(user ,other_user):
     room = get_private_room(user , other_user)
     if room is None:

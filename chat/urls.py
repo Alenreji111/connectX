@@ -14,6 +14,7 @@ urlpatterns = [
     path("group/<int:room_id>/", views.group_chat, name="group_chat"), 
     path("group/<int:room_id>/audio/", views.upload_group_audio, name="group_audio"),
     path("group/<int:room_id>/media/", views.upload_group_media, name="group_media"),
+    path("group/<int:room_id>/avatar/", views.update_group_avatar, name="group_avatar"),
     path("groups/", views.my_groups, name="my_groups"),
     path("search/", views.search_users, name="search_users"),
     path("add-contact/<int:user_id>/", views.add_contact, name="add_contact"),
