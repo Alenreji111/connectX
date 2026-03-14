@@ -3,7 +3,7 @@ from django.http import JsonResponse, HttpResponseForbidden, Http404, FileRespon
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from .models import Room, Message , UserStatus ,Contact , GroupMember
+from .models import Room, Message , UserStatus ,Contact , GroupMember, Reaction
 from django.contrib.auth.models import User
 from .utils import get_private_room
 from django.db.models import Prefetch, Q, OuterRef, Subquery
@@ -368,7 +368,12 @@ def load_private_chat(request, username):
                 Q(sender=request.user, receiver=other_user) |
                 Q(sender=other_user, receiver=request.user)
             )
-            .prefetch_related("reactions")   # 🔥 ADD THIS
+            .prefetch_related(
+                Prefetch(
+                    "reactions",
+                    queryset=Reaction.objects.select_related("user__profile")
+                )
+            )
             .order_by("timestamp")
     )
 

@@ -339,6 +339,8 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 # 🔐 SECURITY CHECK (VERY IMPORTANT)
                 if msg.room_id != self.room.id:
                     return
+                if msg.is_deleted:
+                    return
         
             except Message.DoesNotExist:
                 return

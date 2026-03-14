@@ -344,12 +344,20 @@ function openNewSocket(roomName) {
         // OPTIONAL → remove ticks
         const tick = messageBox.querySelector("[id^='tick-']");
         if (tick) tick.remove();
+
+        // remove reactions UI
+        const reactionMenu = messageBox.querySelector(".reaction-menu");
+        if (reactionMenu) reactionMenu.remove();
+        const reactionBox = messageBox.querySelector(".reaction-box");
+        if (reactionBox) reactionBox.remove();
       }
 
       return;
     }
 
     if (data.type === "reaction_event") {
+      const messageBox = document.getElementById("msg-" + data.message_id);
+      if (messageBox && messageBox.dataset.deleted === "true") return;
       const box = document.getElementById("reaction-" + data.message_id);
       if (!box) return;
 
@@ -691,6 +699,8 @@ function editMessage(id) {
 
 function sendReaction(messageId, emoji) {
   if (!APP.privateSocket) return;
+  const bubble = document.getElementById("msg-" + messageId);
+  if (bubble && bubble.dataset.deleted === "true") return;
   APP.privateSocket.send(
     JSON.stringify({
       type: "reaction",
@@ -705,6 +715,19 @@ function sendReaction(messageId, emoji) {
 }
 
 function showReactionPopup(emoji, users) {
+  const defaultAvatarUrl = "/media/avatars/default.png";
+  const normalizedUsers = (users || [])
+    .map((user) => {
+      if (!user) return null;
+      if (typeof user === "string") {
+        return { username: user, avatar: defaultAvatarUrl };
+      }
+      return {
+        username: user.username,
+        avatar: user.avatar || defaultAvatarUrl,
+      };
+    })
+    .filter((user) => user && user.username);
   let sheet = document.getElementById("reaction-sheet");
 
   if (sheet) sheet.remove();
@@ -729,7 +752,7 @@ function showReactionPopup(emoji, users) {
       </div>
 
       <div class="space-y-3">
-       ${users.map((user) => `
+       ${normalizedUsers.map((user) => `
             <div class="flex items-center gap-3">
 
               <img src="${user.avatar}" 
@@ -745,7 +768,7 @@ function showReactionPopup(emoji, users) {
 
     </div>
   `;
-    console.log("Users:", users);
+    console.log("Users:", normalizedUsers);
 
 
   sheet.addEventListener("click", function (e) {
@@ -949,6 +972,7 @@ let pressTimer;
 document.addEventListener("mousedown", function (e) {
   const bubble = e.target.closest("[id^='msg-']");
   if (!bubble) return;
+  if (bubble.dataset.deleted === "true") return;
 
   pressTimer = setTimeout(() => {
     const id = bubble.id.split("-")[1];
