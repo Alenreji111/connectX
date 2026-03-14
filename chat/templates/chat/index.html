@@ -277,6 +277,10 @@
 
   function openChat(url, roomId) {
 
+      const currentUserId = document.getElementById("current-user")?.dataset.userId;
+      if (currentUserId) {
+        localStorage.setItem("cx_active_user_id", String(currentUserId));
+      }
       if (roomId) {
         localStorage.setItem("cx_active_room_id", String(roomId));
       }
@@ -319,7 +323,20 @@
   function loadChat(url){
 
       fetch(url)
-          .then(res => res.text())
+          .then(res => {
+              if (!res.ok) {
+                  localStorage.removeItem("cx_active_chat_url");
+                  localStorage.removeItem("cx_active_room_id");
+                  if (document.getElementById("chat-container")) {
+                    const fallback = (typeof welcomeHTML === "string" && welcomeHTML)
+                      ? welcomeHTML
+                      : '<div class="flex flex-col items-center justify-center h-full text-slate-400"><div class="text-6xl mb-4">💬</div><div class="text-2xl font-semibold text-slate-700">Welcome to ConnectX</div><div class="mt-2 text-sm text-slate-500">Select a chat to start messaging</div></div>';
+                    document.getElementById("chat-container").innerHTML = fallback;
+                  }
+                  throw new Error("Not allowed");
+              }
+              return res.text();
+          })
           .then(html => {
 
               document.getElementById("chat-container").innerHTML = html;
@@ -469,6 +486,14 @@
   }
 
   function initPersistentChat() {
+    const currentUserId = document.getElementById("current-user")?.dataset.userId;
+    const savedUserId = localStorage.getItem("cx_active_user_id");
+    if (currentUserId && savedUserId && String(savedUserId) !== String(currentUserId)) {
+      localStorage.removeItem("cx_active_chat_url");
+      localStorage.removeItem("cx_active_room_id");
+      localStorage.setItem("cx_active_user_id", String(currentUserId));
+      return;
+    }
     const savedUrl = localStorage.getItem("cx_active_chat_url");
     const savedRoomId = localStorage.getItem("cx_active_room_id");
     if (savedUrl) {
